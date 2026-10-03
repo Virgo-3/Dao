@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dao-agent"
+version = "0.2.0"
+description = "Conversational agent and MCP with branchable state and adjudicated decisions"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "LicenseRef-Dao-Proprietary"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{name = "Dao contributors"}]
+dependencies = []
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.28,<2"]
+openai = ["openai>=2,<3"]
+langgraph = ["langgraph>=1.0,<2", "langgraph-checkpoint-sqlite>=3,<4"]
+dev = ["pytest>=8,<10", "build>=1,<2", "ruff>=0.11,<1"]
+
+[project.scripts]
+dao = "dao.cli:main"
+dao-mcp = "dao.mcp_server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]

@@ -1,0 +1,5 @@
+{
+  "utility_unit": "local preference units",
+  "scenarios": [{"id": "requested", "probability": 1.0}],
+  "actions": [{"id": "update_memory", "utilities": {"requested": 1.0}, "reversibility": 1.0}]
+}

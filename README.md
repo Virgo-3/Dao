@@ -6,7 +6,19 @@ Dao is a local conversational agent whose working state has immutable revisions 
 
 ![Dao workspace](docs/workspace.jpg)
 
-## Run
+## Windows executable
+
+Download the standalone **Windows x64** package from [Releases](https://github.com/Virgo-3/Dao-1/releases/latest) and extract it. No Python installation is needed. Open PowerShell in the package folder:
+
+```powershell
+.\Dao.exe
+```
+
+The executable starts an interactive terminal. Type a message, or enter `/help` for state, branch, decision, audit, and usage commands. Use `.\Dao.exe --web --open-browser` to open the browser workspace instead. Both modes share the same durable state engine; standalone state defaults to `%LOCALAPPDATA%\Dao\state.sqlite3`.
+
+The executable is unsigned; compare it with the release's `SHA256SUMS`. See [Windows launch and build instructions](docs/windows.md) for checksums, live AI configuration, and a reproducible build. The [Windows build workflow](https://github.com/Virgo-3/Dao-1/actions/workflows/windows-build.yml) also supplies runnable packages.
+
+## Run from source
 
 Python **3.11 or newer**. No runtime packages, Node build, or API key are required for the offline demo.
 
@@ -17,6 +29,8 @@ python -m dao
 ```
 
 Open **http://127.0.0.1:8765**. State lives in `.dao/state.sqlite3`; restarting preserves it. `python -m dao --port 9000 --db /path/to/state.sqlite3` changes the port or database.
+
+For an interactive terminal using the same state, run `python -m dao --terminal`. Select an existing branch with `--branch NAME`. Terminal commands and JSON imports are described in [Windows instructions](docs/windows.md#keep-and-branch-your-state); they also work in source launches.
 
 The default **demo** is a clearly labeled deterministic simulator. Branching, decisions, adjudication, persistence, and the ledger operate normally. For live AI, set environment variables before starting:
 
@@ -74,6 +88,6 @@ python -m unittest discover -s tests -v
 node --check dao/static/app.js
 ```
 
-The suite covers Bayesian information value, abstention and reversibility, contradictory evidence, content-bound authorization, stale/concurrent updates, global budgets, stream failures, durable restart, hash tampering, HTTP origin/CSRF protection, and adapter parsing with synthetic provider streams. GitHub Actions runs on Windows/Linux with Python 3.11/3.14. Node is only needed for the JavaScript syntax check.
+The suite covers Bayesian information value, abstention and reversibility, contradictory evidence, content-bound authorization, stale/concurrent updates, global budgets, stream failures, durable restart, hash tampering, HTTP origin/CSRF protection, terminal interactions, and adapter parsing with synthetic provider streams. GitHub Actions runs on Windows/Linux with Python 3.11/3.14. Node is only needed for the JavaScript syntax check. A separate Windows workflow builds the console executable, smoke-tests it, and publishes tagged releases.
 
 See [architecture](docs/architecture.md), [decision model and derivation](docs/decision-model.md), and [security boundaries](SECURITY.md).

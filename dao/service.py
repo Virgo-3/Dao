@@ -93,6 +93,9 @@ class Dao:
     def chat(self, data):
         branch = data.get("branch", "main")
         message = text(data.get("message"), "message")
+        literal = data.get("literal", False)
+        if type(literal) is not bool:
+            raise ValueError("literal must be a boolean")
         with self.branch_lock(branch):
             head = self.checked_head(branch, data.get("expected_head"))
             state = deepcopy(head["state"])
@@ -104,7 +107,7 @@ class Dao:
             chunks, active_id, charged = [], None, False
             output_characters = 0
             try:
-                if message.startswith("/remember "):
+                if not literal and message.startswith("/remember "):
                     key, separator, value = message[10:].partition("=")
                     if not separator:
                         raise ValueError("Use /remember key=value")
@@ -113,7 +116,7 @@ class Dao:
                         raise ValueError("Memory is limited to 100 entries")
                     state["memory"][key] = value
                     stream = iter([{"type": "delta", "text": f"Saved {key}: {value}. This memory is part of this branch’s state."}])
-                elif message == "/decide":
+                elif not literal and message == "/decide":
                     problem = demo_payload()
                     result = evaluate(problem)
                     state["decisions"].append({"id": uuid.uuid4().hex, "problem": problem, "result": result})

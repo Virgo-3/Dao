@@ -1,0 +1,72 @@
+name: Windows executable
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths:
+      - 'dao/**'
+      - 'packaging/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - 'LICENSE'
+      - 'README.md'
+      - 'docs/windows.md'
+      - '.github/workflows/windows-build.yml'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+          architecture: x64
+      - name: Install pinned executable builder
+        run: python -m pip install pyinstaller==6.22.3
+      - name: Run tests
+        run: python -m unittest discover -s tests -v
+      - name: Build standalone executable
+        run: python scripts/build_windows.py
+      - name: Smoke test terminal executable
+        run: python scripts/smoke_windows.py dist/windows/Dao.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Dao-windows-x64
+          path: |
+            dist/windows/Dao.exe
+            dist/windows/SHA256SUMS
+            dist/windows/LICENSE
+            dist/windows/README.txt
+            dist/windows/Dao-windows-x64-*.zip
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Dao-windows-x64
+          path: release-assets
+      - name: Publish tagged Windows release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          Set-Location release-assets
+          $packageArchive = Get-ChildItem -LiteralPath . -Filter 'Dao-windows-x64-*.zip' | Select-Object -ExpandProperty Name
+          if (@($packageArchive).Count -ne 1) { throw 'Expected exactly one runnable package archive.' }
+          gh release create $env:GITHUB_REF_NAME Dao.exe SHA256SUMS $packageArchive --verify-tag --repo $env:GITHUB_REPOSITORY --title "Dao $env:GITHUB_REF_NAME" --notes "Standalone Windows x64 terminal and browser launcher. Default offline simulator; live AI uses process environment settings. Includes versioned state, adjudication and usage accounting."
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub release publication failed.' }

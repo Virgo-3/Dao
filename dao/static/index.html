@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101d1b">
+  <title>Dao · Room to change your mind</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <a class="brand" href="/" aria-label="Dao home"><span class="dao-mark" aria-hidden="true"><i></i></span><span>dao<span class="brand-dot">.</span></span></a>
+      <div class="header-caption">Room to change your mind.</div>
+      <div class="header-actions"><span id="provider-badge" class="badge"><span class="status-dot"></span>Connecting</span><button id="verify-button" class="icon-button" title="Verify state integrity" aria-label="Verify state integrity">◈</button><button id="export-button" class="quiet-button" disabled>Export <span aria-hidden="true">↗</span></button></div>
+    </header>
+
+    <aside class="sidebar" aria-label="Versioned workspace">
+      <div class="sidebar-top"><span class="eyebrow">YOUR WORKSPACE</span><span class="tiny-orbit" aria-hidden="true">○</span></div>
+      <label class="field-label" for="branch-select">Current branch</label>
+      <div class="select-wrap"><select id="branch-select" disabled><option>Loading…</option></select><span aria-hidden="true">⌄</span></div>
+      <div class="branch-creator"><input id="branch-name" maxlength="64" placeholder="Name a new path" aria-label="New branch name" data-mutation><button id="create-branch" class="icon-button" aria-label="Create branch from current state" title="Branch from current state" data-mutation>＋</button></div>
+      <p class="field-help">Every branch starts from this moment. Explore without losing your place.</p>
+
+      <div class="sidebar-section-title"><span class="eyebrow">STATE HISTORY</span><span id="history-count" class="count">0</span></div>
+      <ol id="history-list" class="history-list"><li class="muted loading-copy">Finding your trail…</li></ol>
+      <div class="sidebar-footer"><span class="small-mark" aria-hidden="true">↗</span><div><strong>Nothing is a dead end.</strong><p>Restore a moment. Take another path.</p></div></div>
+    </aside>
+
+    <main class="conversation-panel">
+      <div class="conversation-heading"><div><span class="eyebrow">A FLOWING CONVERSATION</span><h1>Think it through<span class="soft-period">.</span></h1></div><span id="active-branch" class="branch-badge">⑂ main</span></div>
+      <div id="global-alert" class="global-alert" role="alert" hidden></div>
+      <div id="messages" class="messages" aria-label="Conversation" aria-live="polite" aria-relevant="additions">
+        <section class="empty-state"><div class="flow-orb" aria-hidden="true"><div></div><i></i><b></b></div><span class="eyebrow">BEGIN WHERE YOU ARE</span><h2>A little clarity.<br>A little possibility.</h2><p>Bring a question, a tangled thought, or a decision.<br>We’ll make space for what comes next.</p></section>
+      </div>
+      <div id="starter-prompts" class="starter-prompts"><button class="prompt-chip" data-prompt="Help me think through a decision where waiting might be valuable." data-mutation><span>◷</span> Is it time to act?</button><button class="prompt-chip" data-prompt="Help me create a plan that keeps my options open." data-mutation><span>⑂</span> Keep my options open</button></div>
+      <form id="chat-form" class="composer"><label class="sr-only" for="message-input">Your message</label><textarea id="message-input" rows="2" maxlength="8192" placeholder="What’s on your mind?" data-mutation></textarea><div class="composer-bottom"><span id="composer-hint"><span class="composer-spark" aria-hidden="true">✧</span> A thought becomes a new state.</span><button id="send-button" class="send-button" type="submit" aria-label="Send message" data-mutation><span id="send-label">Send</span><span aria-hidden="true">↑</span></button></div></form>
+      <footer class="conversation-footer"><span id="revision-label">State is versioned</span><span>Enter to send · Shift + Enter for a new line</span></footer>
+    </main>
+
+    <aside class="inspector" aria-label="Decision and evidence tools">
+      <div class="inspector-heading"><span class="eyebrow">THE SPACE TO CONSIDER</span><span aria-hidden="true">✧</span></div>
+      <div class="tabs" role="tablist" aria-label="Workspace tools"><button id="decision-tab" role="tab" aria-controls="decision-panel" aria-selected="true" tabindex="0" data-panel="decision-panel">Decision</button><button id="audit-tab" role="tab" aria-controls="audit-panel" aria-selected="false" tabindex="-1" data-panel="audit-panel">Audit</button><button id="ledger-tab" role="tab" aria-controls="ledger-panel" aria-selected="false" tabindex="-1" data-panel="ledger-panel">Ledger</button></div>
+      <section id="decision-panel" role="tabpanel" aria-labelledby="decision-tab" class="tool-panel">
+        <div class="tool-intro"><span class="tool-glyph" aria-hidden="true">⑂</span><h2>Act, explore, or wait.</h2><p>Compare outcomes, account for uncertainty, and give reversibility a place in the decision.</p></div>
+        <div class="section-label"><label for="decision-input">Decision model</label><button id="decision-example" class="text-button" data-mutation>Load example ↺</button></div>
+        <textarea id="decision-input" class="code-input" rows="13" spellcheck="false" aria-describedby="decision-help" data-mutation>{}</textarea><p id="decision-help" class="field-help">Editable JSON. The example includes possible outcomes, probabilities, and the value of waiting.</p>
+        <button id="decision-run" class="primary-button full-width" data-mutation>Consider the paths <span aria-hidden="true">→</span></button>
+        <div id="decision-result" class="result-area" aria-live="polite"></div>
+        <div class="principle"><span aria-hidden="true">◷</span><p><strong>Waiting can be a choice.</strong><br>New information can be worth more than acting immediately.</p></div>
+      </section>
+      <section id="audit-panel" role="tabpanel" aria-labelledby="audit-tab" class="tool-panel" hidden>
+        <div class="tool-intro"><span class="tool-glyph" aria-hidden="true">◈</span><h2>Evidence before action.</h2><p>An audit adjudicates a claim. Its verdict governs whether an artifact can be written.</p></div>
+        <label class="field-label" for="audit-claim">Claim to adjudicate</label><input id="audit-claim" class="wide-input" value="This draft plan is ready for internal review." maxlength="4000" data-mutation>
+        <div class="section-label evidence-heading"><span>Supplied evidence</span><button id="add-evidence" class="text-button" data-mutation>＋ Add</button></div><p class="field-help">Sample evidence is illustrative. Replace it with sources that support your actual claim.</p>
+        <div id="evidence-list" class="evidence-list"></div>
+        <button id="audit-run" class="primary-button full-width" data-mutation>Adjudicate claim <span aria-hidden="true">→</span></button><div id="audit-result" class="result-area" aria-live="polite"></div>
+        <div class="artifact-section"><h3>Write an artifact</h3><p class="field-help">Prepare an audit claim for this exact name and content. A matching allowed verdict enables saving.</p><label class="field-label" for="artifact-name">Artifact name</label><input id="artifact-name" class="wide-input" value="plan.md" data-mutation><label class="field-label spaced" for="artifact-content">Content</label><textarea id="artifact-content" rows="4" placeholder="Your reviewed plan…" data-mutation></textarea><button id="artifact-prepare" class="secondary-button full-width" data-mutation>Prepare this artifact’s audit</button><button id="artifact-save" class="secondary-button full-width" data-mutation>Save with audit verdict</button><p id="artifact-status" class="field-help" role="status"></p></div>
+      </section>
+      <section id="ledger-panel" role="tabpanel" aria-labelledby="ledger-tab" class="tool-panel" hidden>
+        <div class="tool-intro"><span class="tool-glyph" aria-hidden="true">≋</span><h2>Every step, accounted for.</h2><p>Inspect usage and the evidence trail. Your conversation and working memory belong to the active branch.</p></div>
+        <div id="usage-totals" class="usage-totals"></div><div id="budget-display" class="budget-display"></div><div class="section-label"><span>Usage entries</span><span id="usage-count" class="count">0</span></div><div id="usage-entries" class="ledger-entries"></div>
+        <details class="working-memory" open><summary>Working memory</summary><p class="field-help">Small, explicit notes preserved in versioned state.</p><pre id="memory-preview" class="json-preview">{}</pre><label class="field-label" for="memory-key">Key</label><input id="memory-key" class="wide-input" placeholder="e.g. objective" maxlength="128" data-mutation><label class="field-label spaced" for="memory-value">Value</label><textarea id="memory-value" rows="2" placeholder="What should this branch remember?" data-mutation></textarea><button id="memory-save" class="secondary-button full-width" data-mutation>Save a memory</button></details>
+        <details class="event-trail"><summary>Adjudication &amp; activity trail</summary><div id="event-list" class="event-list"></div></details>
+        <details class="saved-artifacts"><summary>Saved artifacts</summary><div id="artifact-list" class="event-list"></div></details>
+      </section>
+      <footer class="inspector-footer">Clarity is a process, not a promise.</footer>
+    </aside>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

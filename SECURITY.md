@@ -1,0 +1,15 @@
+# Security boundaries
+
+Dao is intended for a trusted single user on a local machine. Its HTTP listener binds only to `127.0.0.1`. Do not expose it through a public reverse proxy or port forwarding; it has no multi-user authentication or tenant isolation.
+
+The browser must supply a process-scoped CSRF token to mutate state. Host, Origin, and cross-site fetch checks defend the local endpoint against browser-origin attacks. Static files are allowlisted, request bodies are bounded, and user/model content is rendered as text. API keys are read from environment variables and excluded from state/export/browser configuration. Database state and exports contain conversation data and should be treated as private.
+
+The live provider endpoint is fixed to HTTPS OpenAI Responses. The model has one read-only decision tool and cannot execute commands, read arbitrary files, send messages, or perform external actions. Explicit slash commands save reversible memory or evaluate the local example. Adjudication-gated artifacts are stored in the database only.
+
+Evidence is untrusted operator-supplied data. The adjudicator uses explicit source-count/reliability rules and contradicting evidence vetoes approval. This does not establish evidence truth or source independence. The latest verdict must match exact artifact content; a prior approval does not override a newer contradiction.
+
+Hash-linked revisions and journal entries provide consistency checks, not cryptographic authentication against a database owner. An attacker with local write access can replace the database and recompute hashes. Truncation to a consistent older backup needs an externally anchored digest to detect. Process restarts retain outstanding usage reservations. Unknown failed calls are conservatively charged for admission accounting; monetary costs remain estimates.
+
+Security review should focus on HTTP ingress, origin/CSRF handling, content rendering, model/tool trust boundaries, cross-branch adjudication, optimistic concurrency, credential leakage, accounting on failed streams, and database integrity. Authentication for a public deployment, external tool effects, and provider-side billing accuracy are outside the implemented release's scope.
+
+For vulnerability reporting, send the maintainer a private report through GitHub's private reporting feature if enabled. Avoid posting API keys, conversation databases, or private exports in public issues.

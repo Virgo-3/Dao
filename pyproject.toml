@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dao-agent"
+version = "0.1.0"
+description = "A reversible conversational agent with branchable state, adjudication, and uncertainty-aware decisions"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = []
+
+[project.scripts]
+dao = "dao.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["dao*"]
+
+[tool.setuptools.package-data]
+dao = ["static/*.html", "static/*.css", "static/*.js"]

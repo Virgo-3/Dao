@@ -1,4 +1,4 @@
-/* Dao workspace: cool panels, light headings, and restrained orange controls. */
+/* Dao workspace: cool panels, softened display headings, and orange controls. */
 :root {
   color-scheme: light;
   --bg: #e4ebf2;
@@ -12,7 +12,7 @@
   --accent-text: #a63a12;
   --ink: #18243a;
   --danger: #942c3a;
-  --heading: 'Arial Narrow', 'Segoe UI', Arial, sans-serif;
+  --heading: Impact, 'Arial Narrow', 'Segoe UI', Arial, sans-serif;
   --sans: 'Segoe UI', Inter, Arial, sans-serif;
 }
 * { box-sizing: border-box; }
@@ -34,6 +34,9 @@ summary::marker { color: var(--accent); }
 .app-shell.tools-open { grid-template-columns: 240px minmax(0, 1fr) 380px; }
 .app-header { background: rgba(251, 253, 255, .92); grid-column: 1 / -1; display: flex; align-items: center; gap: 28px; padding: 0 24px; border-bottom: 1px solid var(--line); }
 .brand { display: flex; align-items: center; gap: 12px; color: var(--text); text-decoration: none; font: italic 400 35px/1 var(--heading); letter-spacing: .3px; }
+/* Impact has one weight; trim its strokes slightly without changing its shapes. */
+.heading-effects { position: absolute; width: 0; height: 0; pointer-events: none; }
+.brand > span, .conversation-heading h1, .empty-state h2, .tool-intro h2, .recommendation-card h3 { filter: url(#dao-light-heading); }
 .soft-period { color: var(--accent); }
 .dao-mark { width: 40px; height: 40px; flex-shrink: 0; border-radius: 4px; }
 .header-caption { color: var(--muted); font-size: 13px; }

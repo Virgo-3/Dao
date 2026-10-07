@@ -1,11 +1,11 @@
-# Mathematical verification
+# Mathematical checks
 
 These synthetic examples were evaluated with the Wolfram plugin while implementing the relationship model. They are exact algebraic checks, not empirical evidence about agents or stakeholders.
 
 | Check | Exact result |
 | --- | --- |
 | Nine unit positive weights and one negative weight 20 | Conditional weighted coherence = 9/29 |
-| Reclassify that negative relationship as unknown, keeping reference scope | Coherence = 1, assessed coverage = 9/29; conflict remains open |
+| Set that negative relationship's belief to unknown, preserving weights and scope | Coherence = 1, assessed coverage = 9/29; conflict remains open |
 | Dirichlet prior (1,1,1), observed transition counts (5,1,0) | Posterior means = (2/3,2/9,1/9) |
 | Marginal posterior variances for those probabilities | (1/45,7/405,4/405) |
 | Equal-probability outcomes; Launch payoffs (8,-6), Pilot payoffs (2,1), no penalties | Best immediate utility = 3/2 |

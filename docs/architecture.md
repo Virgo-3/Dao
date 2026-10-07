@@ -14,7 +14,7 @@ flowchart LR
     Provider --> Decision
 ```
 
-The model generates conversational text and may request read-only decision evaluation. It does not own branch pointers, adjudication permissions, or accounting. The runtime alone commits snapshots and records model/tool attempts.
+The model generates replies and may request read-only decision evaluation. The runtime controls branches, audit permissions, and usage accounting. It alone saves revisions and records model and tool attempts.
 
 ## Turn lifecycle
 
@@ -33,7 +33,7 @@ The database uses per-operation connections and immediate write transactions. Sn
 
 ## State and persistence
 
-A revision contains `messages`, `memory`, `decisions`, `artifacts`, and optional `audits` and `relationships`. Older snapshots without relationships read as an empty graph without rewriting historical hashes. Relationship operations use the same branch lock, optimistic head check, and atomic commit journal as other mutations. Its identifier hashes parent, kind, label, full snapshot, and UTC timestamp. Branches are named pointers. A restore copies an ancestor's snapshot into a new child revision, preserving the abandoned path and lifetime costs. A state restore cannot undo external effects.
+A revision contains `messages`, `memory`, `decisions`, `artifacts`, and optional `audits` and `relationships`. Older snapshots without relationships read as an empty graph without rewriting historical hashes. Relationship operations use the same branch lock, optimistic head check, and atomic revision journal as other mutations. A revision's identifier hashes its parent, kind, label, full snapshot, and UTC timestamp. A branch's head points to its latest revision; a checkpoint is the revision being viewed or selected. Restore copies a reachable ancestor's snapshot into a new revision, preserving history and lifetime usage. It cannot undo external actions.
 
 The global journal links events across all branches with SHA-256. Integrity verification recalculates revision/event hashes and replays branch heads, metadata, and ledger entries, then checks SQLite integrity. Verification is performed before startup. It detects inconsistent local edits and missing middle records, not an adversary who can replace every hash or a consistent historical suffix.
 
@@ -41,23 +41,23 @@ An export is a readable branch snapshot plus ancestry, branch events, configurat
 
 ## Policy and trust
 
-Audit claims for artifacts take the form `artifact:<trimmed-name>:<SHA256(trimmed-content)>`. The latest stored verdict for the exact claim must be allowed and its identifier must match the supplied identifier. It must be unscoped and bind the current relationship graph digest; a graph edit or a newer contradiction requires adjudication again. Artifacts also require no unresolved severe conflicts anywhere in the graph. Older saved verdicts without a relationship digest require fresh adjudication. Creating a branch or restoring a checkpoint can deliberately restore prior policy state; this is an explicit operator choice, and journal history remains available.
+Audit claims for artifacts take the form `artifact:<trimmed-name>:<SHA256(trimmed-content)>`. The latest stored verdict for the exact claim must be allowed and its identifier must match the supplied identifier. The verdict must have no action scope and must bind the current relationship graph digest. A graph edit or a newer contradiction requires a new audit. Saving also requires no unresolved severe conflicts anywhere in the graph. Older verdicts without a relationship digest require a new audit. Creating a branch or restoring a checkpoint can deliberately recover prior policy state; this is an explicit operator choice, and journal history remains available.
 
-Relationship beliefs are probability distributions over positive, neutral, and negative, or explicitly unknown. Reported observations remain separate from belief assessments. Weighted coherence is conditional on positive/negative mass and is undefined without either; coverage and unknown mass reveal missing assessments. Relation scope and weights cannot be silently changed. Any adverse belief or reported adverse outcome opens a conflict; favorable or unknown beliefs do not resolve it. Resolution requires admissible current-state evidence and nonadverse belief/outcome prerequisites. Observational transition estimates use a symmetric Dirichlet prior and show counts, posterior means, and variances per relation, action, and context. They do not identify causal effects or supply calibrated decision probabilities automatically. See [relationship semantics](relationships.md).
+Relationship beliefs assign probabilities to positive, neutral, and negative outcomes, or are explicitly unknown. Reported observations remain separate from assessed beliefs. Conditional coherence is positive mass divided by positive plus negative mass; it displays **Not defined** when that denominator is zero. Assessed coverage and unknown weight show missing assessments. Relation scope and weights are fixed once saved. Any negative belief probability or reported negative before/after state opens or reopens a conflict. Resolution requires a current graph-bound audit verdict, a belief with zero negative probability, and no latest negative reported outcome. Transition estimates use a symmetric Dirichlet prior and show counts, posterior means, and variances per relation, action, and context. They describe reported associations and do not automatically supply calibrated causal probabilities. See [relationships](relationships.md).
 
 The service binds unresolved severe conflicts to operator-declared exact action names and removes affected actions from both immediate and signal-conditioned choices. An empty applicability list applies globally. Coherence and transition summaries accompany results, but do not replace the caller's utilities. Saved memory and relationship context are sent as untrusted user input; fixed developer instructions describe the runtime boundary, following [official OpenAI guidance on untrusted inputs](https://developers.openai.com/api/docs/guides/agent-builder-safety).
 
-Source labels, evidence reliability, scenario probabilities, and utilities are operator inputs, not verified measurements. The model's decision results are advisory and have no automatic external effect. Local artifact saving is the only adjudication-gated action currently implemented.
+Source labels, evidence reliability, scenario probabilities, and utilities are supplied by the operator. Decision results are recommendations based on those assumptions and do not perform external actions. Audit verdicts gate conflict resolution and local artifact saving.
 
 ## Source map
 
 | File | Responsibility |
 | --- | --- |
 | `dao/store.py` | Revisions, branches, journal, usage reservations, integrity |
-| `dao/service.py` | Turn lifecycle, branch locks, commands, artifact gate |
+| `dao/service.py` | Turn lifecycle, branch locks, commands, artifact permission |
 | `dao/decision.py` | Validated decision problem, posterior utility, waiting |
-| `dao/audit.py` | Deterministic evidence adjudication and digest |
-| `dao/relationships.py` | Weighted relational state, persistent conflicts, empirical transition estimates |
+| `dao/audit.py` | Deterministic evidence review, verdicts, and digest |
+| `dao/relationships.py` | Relationship beliefs, persistent conflicts, and transition estimates |
 | `dao/provider.py` | Demo and live model streams; bounded read-only tools |
 | `dao/server.py` | Loopback JSON/NDJSON API and static assets |
 | `dao/config.py` | Server-side configuration and cost accounting |

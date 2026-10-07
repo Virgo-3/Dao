@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "dao-agent"
 version = "0.3.0"
-description = "A reversible conversational agent with branchable state, adjudication, and uncertainty-aware decisions"
+description = "A local conversational agent with versioned state, evidence review, and decisions under uncertainty"
 readme = "docs/overview.md"
 requires-python = ">=3.11"
 license = "MIT"

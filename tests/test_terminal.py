@@ -147,7 +147,7 @@ class TerminalTests(unittest.TestCase):
         code, output, _ = self.run_terminal(commands)
         self.assertEqual(code, 0)
         self.assertNotIn("Error:", output)
-        self.assertIn("Coherence: Unassessed", output)
+        self.assertIn("Coherence: Not defined", output)
         self.assertIn('"relation_id": "launch-trust"', output)
         self.assertEqual(self.app.snapshot("main")["relationships"]["negative_weight"], 20)
         self.assertEqual(self.app.snapshot("exploratory")["relationships"]["unknown_weight"], 20)
@@ -247,7 +247,7 @@ class TerminalTests(unittest.TestCase):
         with patch("dao.service.demo_stream", stopped):
             code, output, _ = self.run_terminal("Hello\n/remember should=not-run\n")
         self.assertEqual(code, 0)
-        self.assertIn("Turn settled; exiting", output)
+        self.assertIn("State and usage recorded; exiting", output)
         self.assertEqual(signal.getsignal(signal.SIGINT), original)
         self.assertEqual(self.store.head()["state"]["messages"][-1]["status"], "completed")
         self.assertEqual(self.store.head()["state"]["memory"], {})
@@ -277,7 +277,7 @@ class TerminalTests(unittest.TestCase):
         with patch("dao.service.demo_stream", stopped):
             code, output, _ = self.run_terminal("Hello\n/remember should=not-run\n")
         self.assertEqual(code, 0)
-        self.assertIn("Turn settled; exiting", output)
+        self.assertIn("State and usage recorded; exiting", output)
         self.assertEqual(signal.getsignal(signal.SIGBREAK), original)
         self.assertEqual(self.store.usage()["reserved_tokens"], 0)
         self.assertEqual(self.store.usage()["entries"][0]["status"], "completed")

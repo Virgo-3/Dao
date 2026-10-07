@@ -35,7 +35,7 @@ def main(argv: list[str] | None = None) -> int:
     except metadata.PackageNotFoundError:
         parser.error(f"Install the build dependency with: python -m pip install pyinstaller=={PYINSTALLER_VERSION}")
     if installed != PYINSTALLER_VERSION:
-        parser.error(f"This reproducible build requires PyInstaller {PYINSTALLER_VERSION}; found {installed}. Install the pinned version first.")
+        parser.error(f"This build requires PyInstaller {PYINSTALLER_VERSION}; found {installed}. Install the pinned version first.")
 
     output = args.output_dir.resolve()
     work = repo / "build" / "windows"
@@ -71,16 +71,16 @@ def main(argv: list[str] | None = None) -> int:
         "Open PowerShell in this directory and run:\n"
         "  .\\Dao.exe\n"
         "  .\\Dao.exe --web --open-browser\n\n"
-        "The default is an offline simulator. Enter /help for terminal commands.\n"
+        "Dao starts with the offline demo. Enter /help for terminal commands.\n"
         "State persists at %LOCALAPPDATA%\\Dao\\state.sqlite3.\n"
         "Use --db PATH to select a separate database; terminal and browser can share it.\n"
-        "No credentials, conversation state, or Python installation are bundled.\n"
+        "The Python runtime is bundled. Credentials and conversation state are not included.\n"
         "The executable is unsigned. Its SHA-256 is in SHA256SUMS.\n\n"
         "Live AI reads process environment settings (DAO_PROVIDER=openai,\n"
         "OPENAI_API_KEY, and optionally DAO_MODEL). Keep keys private.\n\n"
         "Launch, configuration, checksums, and build instructions:\n"
-        "https://github.com/Virgo-3/Dao-1/blob/main/docs/windows.md\n"
-        "Source and license: https://github.com/Virgo-3/Dao-1\n",
+        "https://github.com/Virgo-3/Dao/blob/main/docs/windows.md\n"
+        "Source and license: https://github.com/Virgo-3/Dao\n",
         encoding="utf-8",
     )
     with executable.open("rb") as source:

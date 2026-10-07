@@ -26,7 +26,7 @@ def default_database():
 
 
 def main(argv=None, *, default_terminal=False):
-    parser = argparse.ArgumentParser(description="Dao — a reversible conversational workspace")
+    parser = argparse.ArgumentParser(description="Dao — a conversational workspace with revision history")
     parser.add_argument("--version", action="version", version=f"Dao {__version__}")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--terminal", dest="interface", action="store_const", const="terminal",
@@ -64,7 +64,7 @@ def main(argv=None, *, default_terminal=False):
                 store.head(args.branch)
             except (ValueError, KeyError) as exc:
                 parser.error(str(exc))
-            print(f"Durable state: {path.resolve()}", flush=True)
+            print(f"State database: {path.resolve()}", flush=True)
             return Terminal(app, args.branch).run()
         try:
             server = make_server(app, args.port)
@@ -72,7 +72,7 @@ def main(argv=None, *, default_terminal=False):
             parser.error(f"Cannot bind local port {args.port}: {exc}")
         url = f"http://127.0.0.1:{args.port}"
         print(f"Dao · {config.provider} · {url}", flush=True)
-        print(f"Durable state: {path.resolve()}", flush=True)
+        print(f"State database: {path.resolve()}", flush=True)
         if args.open_browser:
             webbrowser.open(url)
         if hasattr(signal, "SIGBREAK") and threading.current_thread() is threading.main_thread():

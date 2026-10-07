@@ -1,8 +1,8 @@
 # Dao on Windows
 
-Dao 0.3.0 has a standalone **Windows x64 console executable**. Python is bundled by the executable builder; you do not need to install Python to run `Dao.exe`.
+Dao 0.3.0 has a standalone **Windows x64 terminal executable**. It includes the Python runtime, so you do not need to install Python to run `Dao.exe`.
 
-Download `Dao-windows-x64-0.3.0.zip` from [GitHub Releases](https://github.com/Virgo-3/Dao-1/releases/latest), then extract it to a folder of your choice. The package contains `Dao.exe`, `SHA256SUMS`, `LICENSE`, and `README.txt`. The [Windows executable workflow](https://github.com/Virgo-3/Dao-1/actions/workflows/windows-build.yml) also provides build artifacts.
+Download `Dao-windows-x64-0.3.0.zip` from [GitHub Releases](https://github.com/Virgo-3/Dao/releases/latest), then extract it to a folder of your choice. The package contains `Dao.exe`, `SHA256SUMS`, `LICENSE`, and `README.txt`. The [Windows executable workflow](https://github.com/Virgo-3/Dao/actions/workflows/windows-build.yml) also provides build artifacts.
 
 ## Start a conversation
 
@@ -12,7 +12,7 @@ Open PowerShell in the extracted folder:
 .\Dao.exe
 ```
 
-The executable defaults to an interactive terminal. Type a message, press Enter, and watch the response stream. The default provider is a deterministic local simulator, so trying the application needs no account, API key, or network model call. Enter `/help` for commands, or `/quit` to exit. End-of-input also exits cleanly.
+The executable starts an interactive terminal. Type a message and press Enter to see the response stream. The default **offline demo** produces deterministic replies without an account, API key, or AI model call. Enter `/help` for commands, or `/quit` to exit. End-of-input also exits cleanly.
 
 To use the browser workspace instead:
 
@@ -28,7 +28,7 @@ Check the executable version:
 .\Dao.exe --version
 ```
 
-## Keep and branch your state
+## Save state and create branches
 
 Standalone launches default to `%LOCALAPPDATA%\Dao\state.sqlite3`. The database is outside the extracted package, so updating the executable preserves your state. Source launches default to `.dao/state.sqlite3` under the working directory. Select an explicit database when moving between the two:
 
@@ -43,16 +43,16 @@ Terminal and browser use the same state engine. The default branch is `main`; `-
 | --- | --- |
 | `/help`, `/quit` | Show help or leave the terminal |
 | `/branches`, `/branch NAME`, `/switch NAME` | List, fork from the current checkpoint, or switch branches |
-| `/history`, `/restore ID_PREFIX`, `/head` | Inspect revisions, append a restoration to a unique reachable ancestor, or refresh |
-| `/memory`, `/remember KEY=VALUE` | Inspect or save branch-local memory |
+| `/history`, `/restore ID_PREFIX`, `/head` | Inspect revisions, restore a reachable checkpoint as a new revision, or refresh |
+| `/memory`, `/remember KEY=VALUE` | Inspect or save memory in the current branch |
 | `/relationships`, `/conflicts`, `/relate PATH` | Inspect the graph, review unresolved conflicts, or apply an operation JSON file |
 | `/usage`, `/verify` | Inspect lifetime accounting or verify state integrity |
 | `/decide`, `/decision PATH` | Run the example or a JSON decision model |
-| `/audit PATH`, `/artifact PATH` | Adjudicate a JSON claim or write an artifact authorized for its exact content |
+| `/audit PATH`, `/artifact PATH` | Review a claim and evidence, or save an artifact with its current matching verdict |
 | `/export PATH` | Create a JSON export; existing output files are never overwritten |
 | `/say TEXT` | Send a literal message, including text beginning with `/` |
 
-Import paths may contain spaces without quoting. Imported files must be JSON objects and are limited to 128 KiB. Restoring a revision does not erase audit events, provider usage, or incurred cost. Artifacts are data in the database; this release does not execute external effects.
+Import paths may contain spaces without quoting. Imported files must be JSON objects and are limited to 128 KiB. Restoring a checkpoint preserves audit events, provider usage, and recorded costs. Artifacts are named content in Dao's database. This release has no tools that perform external actions.
 
 ## Connect a live model
 
@@ -65,7 +65,7 @@ $env:DAO_MODEL = "gpt-4.1-mini"
 .\Dao.exe
 ```
 
-Use a Responses API model available to your account. The executable reads process environment variables and does not load `.env` files automatically. Credentials and conversation state are not included in the downloadable package. Live inference sends the current conversation, saved memory, and relationship context to OpenAI; credentials remain in the local process. See the [project guide](overview.md) for provider limits, token reservation, optional price settings, and security boundaries.
+Use a Responses API model available to your account. The executable reads process environment variables and does not load `.env` files automatically. Credentials and conversation state are not included in the downloadable package. Live inference sends the current conversation, saved memory, and relationship context to OpenAI. The API key is sent for provider authentication and excluded from Dao's public configuration, state, and exports. See the [project guide](overview.md) for provider limits, token reservation, optional price settings, and security boundaries.
 
 ## Verify the download
 

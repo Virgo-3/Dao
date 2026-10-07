@@ -1,4 +1,4 @@
-# Decision and adjudication model
+# Decision and audit model
 
 Dao makes its decision calculations inspectable. It compares immediate actions,
 abstaining, and waiting for one explicitly modeled observation. The engine is
@@ -186,7 +186,7 @@ Module[{prior = {1/2, 1/2}, outcomes = {{539/5, -611/5}, {148/5, -87/5}},
 ]
 ```
 
-## Audit as adjudication
+## Evidence review and verdicts
 
 `dao.audit.adjudicate(payload)` evaluates a submitted claim and evidence using
 an explicit policy. It accepts `claim`, `evidence`, `threshold` (default `0.75`),
@@ -219,8 +219,8 @@ and `allow_nan=False`. Text fields are trimmed, numerical defaults are explicit,
 and reliability and threshold values normalize to floats. Evidence array order
 and source-label case remain part of the digest. Reordering evidence or changing
 its content therefore changes the identifier even when the verdict is identical.
-This identity binds an adjudication to what was submitted, not to the world's
-truth.
+This identifier binds the audit to the submitted evidence. It does not establish
+whether the evidence is true.
 
 ## Boundaries
 
@@ -239,4 +239,4 @@ state changes and permitted actions.
 
 The runtime excludes exact action names affected by unresolved severe relationship conflicts before both prior and posterior optimization. The complete submitted problem is still validated and included in the computation limit. When every action is excluded, abstention remains available. Action applicability is operator-declared and decision results remain advisory; no external action authorization follows from a recommendation. Weighted coherence and empirical transition summaries accompany results as diagnostics and do not replace utilities or automatically supply calibrated scenario probabilities.
 
-The pure evidence adjudicator continues hashing normalized evidence. Runtime permission identifiers additionally bind the action scope and current graph digest. Artifact saving requires an unscoped current permission and no severe unresolved conflicts. Graph edits invalidate earlier artifact permission; conflict-resolution evidence is retained among the versioned audits.
+The pure evidence adjudicator hashes normalized evidence. Runtime permission identifiers also bind the action scope and current graph digest. Artifact saving requires a current matching verdict without an action scope and no unresolved severe conflicts. Graph edits require a new artifact audit. Conflict-resolution evidence is saved in the revision's audits.

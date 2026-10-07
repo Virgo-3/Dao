@@ -26,23 +26,23 @@ HELP = """Chat by typing a message. Commands:
   /branch NAME          Fork the viewed checkpoint and switch to the new branch
   /switch NAME          Switch to an existing branch
   /head                 Refresh and show the current branch head
-  /history              Show reachable checkpoints, newest first
-  /restore ID_PREFIX    Restore a unique reachable checkpoint as a new commit
-  /remember KEY=VALUE   Save branch memory through the runtime
+  /history              Show reachable revisions, newest first
+  /restore ID_PREFIX    Restore a unique reachable checkpoint as a new revision
+  /remember KEY=VALUE   Save memory in the current branch
   /memory               Show this checkpoint's saved memory
-  /relationships        Show relationship coherence, coverage, and observations
+  /relationships        Show coherence, coverage, and reported observations
   /conflicts            Show unresolved relationship conflicts
   /relate PATH          Apply one relationship operation JSON (up to 128 KiB)
   /decide               Run the decision example
   /decision PATH        Evaluate a decision JSON file (up to 128 KiB)
-  /audit PATH           Adjudicate an evidence JSON file (up to 128 KiB)
-  /artifact PATH        Save {name, content, verdict_id} through the audit gate
+  /audit PATH           Review a claim and evidence JSON file (up to 128 KiB)
+  /artifact PATH        Save an artifact with its current matching audit verdict
   /usage                Show global usage, including prior branches and restores
   /verify               Verify the state and event journal
   /export PATH          Create a readable dao-export-v1 JSON file; never overwrite
   /say TEXT             Send literal text, including a slash-prefixed message
 Paths may contain spaces; surrounding quotes are optional.
-Ctrl+C at the prompt exits. During a turn, it exits after usage and state settle.
+Ctrl+C at the prompt exits. During a turn, it exits after state and usage are recorded.
 """
 
 
@@ -241,7 +241,7 @@ class Terminal:
             for number, original_handler in original_handlers.items():
                 signal.signal(number, original_handler)
         if self._stop_requested:
-            self._write("Turn settled; exiting.\n")
+            self._write("State and usage recorded; exiting.\n")
 
     @staticmethod
     def _no_argument(command, argument):
@@ -301,13 +301,13 @@ class Terminal:
                     self._json(conflicts)
                 else:
                     coherence = summary["coherence"]
-                    label = "Unassessed" if coherence is None else f"{coherence:.1%}"
+                    label = "Not defined" if coherence is None else f"{coherence:.1%}"
                     self._write(f"Coherence: {label}; assessed coverage: {summary['coverage']:.1%}\n")
                     self._json(summary)
             elif command == "/verify":
                 result = self.app.store.verify()
                 if result["ok"]:
-                    self._write(f"Integrity: OK ({result['commits']} commits, {result['events']} events)\n")
+                    self._write(f"Integrity: OK ({result['commits']} revisions, {result['events']} events)\n")
                 else:
                     self._write("Integrity: FAILED\n")
                     for error in result["errors"]:

@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "dao-agent"
 version = "0.3.0"
 description = "A local conversational agent with versioned state, evidence review, and decisions under uncertainty"
-readme = "docs/overview.md"
+readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 dependencies = []

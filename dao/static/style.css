@@ -1,4 +1,4 @@
-/* Dao workspace: cool panels, strong headings, and restrained orange controls. */
+/* Dao workspace: cool panels, light headings, and restrained orange controls. */
 :root {
   color-scheme: light;
   --bg: #e4ebf2;
@@ -12,7 +12,7 @@
   --accent-text: #a63a12;
   --ink: #18243a;
   --danger: #942c3a;
-  --heading: Impact, 'Arial Narrow', 'Segoe UI', Arial, sans-serif;
+  --heading: 'Arial Narrow', 'Segoe UI', Arial, sans-serif;
   --sans: 'Segoe UI', Inter, Arial, sans-serif;
 }
 * { box-sizing: border-box; }

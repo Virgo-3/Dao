@@ -3,19 +3,21 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#101d1b">
+  <meta name="theme-color" content="#e8edf3">
   <title>Dao · Room to change your mind</title>
   <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="/static/dao.svg" type="image/svg+xml">
+  <link rel="alternate icon" href="/static/dao.ico" type="image/vnd.microsoft.icon">
   <script src="/static/app.js" defer></script>
 </head>
 <body>
   <div id="app-shell" class="app-shell tools-open">
     <header class="app-header">
-      <a class="brand" href="/" aria-label="Dao home"><span class="dao-mark" aria-hidden="true"><i></i></span><span>Dao<span class="brand-dot">.</span></span></a>
+      <a class="brand" href="/" aria-label="Dao home"><img class="dao-mark" src="/static/dao.svg" alt="" aria-hidden="true"><span>Dao</span></a>
       <div class="header-caption">Room to change your mind.</div>
       <div class="header-actions">
         <span id="provider-badge" class="badge"><span class="status-dot"></span>Connecting</span>
-        <button id="verify-button" class="quiet-button" title="Check saved history for inconsistencies">Verify history</button>
+        <button id="verify-button" class="quiet-button" title="Check saved history for inconsistencies" aria-label="Verify history"><span class="utility-label">Verify history</span><span class="utility-short" aria-hidden="true">Verify</span></button>
         <button id="export-button" class="quiet-button" disabled>Export</button>
         <button id="tools-toggle" class="secondary-button tools-toggle" aria-controls="workspace-tools" aria-expanded="true">Hide tools</button>
       </div>
@@ -40,7 +42,7 @@
       <div class="conversation-heading"><div><span class="eyebrow">Conversation</span><h1>Think it through<span class="soft-period">.</span></h1></div><span id="active-branch" class="branch-badge">⑂ main</span></div>
       <p id="provider-description" class="mode-note">Connecting to your workspace…</p>
       <div id="messages" class="messages" aria-label="Conversation" aria-live="polite" aria-relevant="additions">
-        <section class="empty-state"><div class="flow-orb" aria-hidden="true"><div></div><i></i><b></b></div><h2>Room to think.</h2><p>Ask a question, explore a decision,<br>or start with one of the prompts below.</p></section>
+        <section class="empty-state"><img class="empty-emblem" src="/static/dao.svg" alt="" aria-hidden="true"><h2>Room to think.</h2><p>Ask a question, explore a decision,<br>or start with one of the prompts below.</p></section>
       </div>
       <div id="starter-prompts" class="starter-prompts"><button class="prompt-chip" data-prompt="Help me think through a decision where waiting might be valuable." data-mutation><span>◷</span> Is it time to act?</button><button class="prompt-chip" data-prompt="Help me create a plan that keeps my options open." data-mutation><span>⑂</span> Keep my options open</button></div>
       <form id="chat-form" class="composer"><label class="sr-only" for="message-input">Your message</label><textarea id="message-input" rows="2" maxlength="8192" placeholder="What’s on your mind?" data-mutation></textarea><div class="composer-bottom"><span id="composer-hint"><span class="composer-spark" aria-hidden="true">✧</span> Messages are saved in this branch.</span><button id="send-button" class="send-button" type="submit" aria-label="Send message" data-mutation><span id="send-label">Send</span><span aria-hidden="true">↑</span></button></div></form>

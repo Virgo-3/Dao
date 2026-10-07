@@ -19,4 +19,4 @@ dao-terminal = "dao.__main__:terminal_main"
 include = ["dao*"]
 
 [tool.setuptools.package-data]
-dao = ["static/*.html", "static/*.css", "static/*.js"]
+dao = ["static/*.html", "static/*.css", "static/*.js", "static/*.svg", "static/*.ico"]

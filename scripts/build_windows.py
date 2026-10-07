@@ -44,6 +44,7 @@ def main(argv: list[str] | None = None) -> int:
     command = [
         sys.executable, "-m", "PyInstaller",
         "--onefile", "--console", "--noupx", "--name", "Dao",
+        "--icon", str(repo / "dao" / "static" / "dao.ico"),
         "--add-data", f"{repo / 'dao' / 'static'}:dao/static",
         "--paths", str(repo),
         "--distpath", str(output),

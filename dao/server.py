@@ -72,11 +72,14 @@ class Handler(BaseHTTPRequestHandler):
                 self.respond(200, self.app.store.verify())
             elif parsed.path == "/api/export":
                 self.respond(200, {"schema": "dao-export-v1", **self.app.snapshot(branch)})
-            elif parsed.path in {"/", "/index.html", "/app.js", "/style.css", "/static/app.js", "/static/style.css"}:
+            elif parsed.path in {"/", "/index.html", "/app.js", "/style.css", "/static/app.js", "/static/style.css", "/static/dao.svg", "/static/dao.ico"}:
                 filename = "index.html" if parsed.path == "/" else parsed.path.rsplit("/", 1)[-1]
                 body = (STATIC / filename).read_bytes()
-                mime = {"html": "text/html", "js": "text/javascript", "css": "text/css"}[filename.rsplit(".", 1)[-1]]
-                self.headers_for(200, mime + "; charset=utf-8", len(body))
+                extension = filename.rsplit(".", 1)[-1]
+                mime = {"html": "text/html", "js": "text/javascript", "css": "text/css", "svg": "image/svg+xml", "ico": "image/vnd.microsoft.icon"}[extension]
+                if extension != "ico":
+                    mime += "; charset=utf-8"
+                self.headers_for(200, mime, len(body))
                 self.wfile.write(body)
             else:
                 self.respond(404, {"error": "Not found"})

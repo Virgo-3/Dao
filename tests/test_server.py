@@ -85,6 +85,23 @@ class HttpTests(unittest.TestCase):
         with self.assertRaises(OSError):
             make_server(Dao(self.store, Config()), self.port)
 
+    def test_brand_assets_are_local_allowlisted_images(self):
+        for path, mime, signature in (
+            ("/static/dao.svg", "image/svg+xml; charset=utf-8", b"<svg"),
+            ("/static/dao.ico", "image/vnd.microsoft.icon", b"\x00\x00\x01\x00"),
+        ):
+            with self.subTest(path=path):
+                status, image, headers = self.request("GET", path)
+                self.assertEqual(status, 200)
+                self.assertIn(signature, image)
+                self.assertEqual(headers["Content-Type"], mime)
+                self.assertEqual(headers["Content-Length"], str(len(image)))
+                self.assertEqual(headers["X-Content-Type-Options"], "nosniff")
+                self.assertEqual(self.request("GET", path, headers={"Host": "evil.example"})[0], 403)
+        for path in ("/static/unknown.svg", "/static/../config.py", "/static/%2e%2e/config.py"):
+            with self.subTest(path=path):
+                self.assertEqual(self.request("GET", path)[0], 404)
+
     def test_oversized_decision_is_rejected_without_committing_state(self):
         head = self.bootstrap["head"]["id"]
         problem = demo_payload()

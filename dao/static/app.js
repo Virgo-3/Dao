@@ -116,10 +116,20 @@ function resetVerdict() {
   $("artifact-status").textContent = "Prepare and review this artifact’s claim before saving.";
 }
 
+function daoIcon(className = "") {
+  const icon = node("img", className);
+  icon.src = "/static/dao.svg";
+  icon.alt = "";
+  icon.setAttribute("aria-hidden", "true");
+  return icon;
+}
+
 function renderMessage(message, streaming = false) {
   const role = message.role === "user" ? "user" : message.role === "assistant" ? "assistant" : "system";
   const item = node("article", `message ${role}${streaming ? " streaming" : ""}`);
-  item.append(node("span", "message-avatar", role === "user" ? "You" : role === "assistant" ? "◉" : "✧"));
+  const avatar = node("span", `message-avatar ${role}`, role === "user" ? "You" : role === "system" ? "✧" : undefined);
+  if (role === "assistant") avatar.append(daoIcon());
+  item.append(avatar);
   const body = node("div", "message-body");
   body.append(node("div", "message-label", role === "assistant" ? "Dao" : titleCase(role)));
   const content = node("div", "message-content", message.content || "");
@@ -142,14 +152,12 @@ function renderConversation() {
   $("starter-prompts").hidden = messages.length > 0;
   if (!messages.length) {
     const empty = node("section", "empty-state");
-    const orb = node("div", "flow-orb");
-    orb.setAttribute("aria-hidden", "true");
-    orb.append(node("div"), node("i"), node("b"));
+    const emblem = daoIcon("empty-emblem");
     const heading = node("h2");
     heading.textContent = "Room to think.";
     const copy = node("p");
     copy.append(document.createTextNode("Ask a question, explore a decision,"), node("br"), document.createTextNode("or start with one of the prompts below."));
-    empty.append(orb, heading, copy);
+    empty.append(emblem, heading, copy);
     $("messages").append(empty);
   } else {
     messages.forEach((message) => renderMessage(message));

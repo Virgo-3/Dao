@@ -8,6 +8,7 @@ let busy = false;
 let ready = false;
 let auditVerdict = null;
 let toastTimer;
+let errorFocus = null;
 
 function node(tag, className, text) {
   const element = document.createElement(tag);
@@ -46,11 +47,12 @@ function scalar(value) {
 
 function clearError() {
   $("global-alert").hidden = true;
-  $("global-alert").textContent = "";
+  $("alert-message").textContent = "";
 }
 
 function showError(error) {
-  $("global-alert").textContent = error instanceof Error ? error.message : String(error);
+  errorFocus = document.activeElement;
+  $("alert-message").textContent = error instanceof Error ? error.message : String(error);
   $("global-alert").hidden = false;
 }
 
@@ -69,7 +71,7 @@ function setBusy(value) {
   $("branch-select").disabled = busy || !ready;
   $("export-button").disabled = busy || !ready;
   $("send-label").textContent = busy ? "Working" : "Send";
-  $("composer-hint").textContent = busy ? "Working…" : "✧  Messages are saved in this branch.";
+  $("composer-hint").textContent = busy ? "Working…" : "Saved in this branch";
   $("chat-form").setAttribute("aria-busy", String(busy));
 }
 
@@ -144,10 +146,10 @@ function renderConversation() {
     orb.setAttribute("aria-hidden", "true");
     orb.append(node("div"), node("i"), node("b"));
     const heading = node("h2");
-    heading.append(document.createTextNode("Ask a question."), node("br"), document.createTextNode("Consider a decision."));
+    heading.textContent = "Room to think.";
     const copy = node("p");
-    copy.append(document.createTextNode("Describe what matters and what is uncertain."), node("br"), document.createTextNode("Explore your options with Dao."));
-    empty.append(orb, node("span", "eyebrow", "START A CONVERSATION"), heading, copy);
+    copy.append(document.createTextNode("Ask a question, explore a decision,"), node("br"), document.createTextNode("or start with one of the prompts below."));
+    empty.append(orb, heading, copy);
     $("messages").append(empty);
   } else {
     messages.forEach((message) => renderMessage(message));
@@ -271,6 +273,7 @@ function renderWorkspace() {
   else { $("audit-result").replaceChildren(); resetVerdict(); }
   const config = workspace?.config || {};
   $("provider-badge").replaceChildren(node("span", "status-dot"), document.createTextNode(config.provider === "demo" ? "Offline demo" : config.provider === "openai" ? `Live · ${config.model || "OpenAI"}` : "Connected"));
+  $("provider-description").textContent = config.provider === "demo" ? "Offline demo · Sample replies, no AI model calls." : "Live AI · Your conversation is sent to the configured model.";
   $("provider-badge").title = config.provider === "demo" ? "Offline demo with deterministic replies. No AI model or external API is used." : "Connected model provider";
   setBusy(busy);
 }
@@ -369,7 +372,7 @@ function addEvidence(initial = {}) {
 
 function renderDecision(result) {
   const container = $("decision-result");
-  container.replaceChildren(node("div", "result-heading", "DECISION RESULT"));
+  container.replaceChildren(node("div", "result-heading", "LATEST SAVED DECISION"));
   const summary = node("div", "recommendation-card");
   summary.append(node("div", "result-kicker", "Recommendation"));
   const recommendation = result.recommendation === "act" ? `Act: ${result.selected_action || "selected action"}` : result.recommendation === "wait" ? "Wait for information" : result.recommendation === "abstain" ? "Abstain" : scalar(result.recommendation || result.selected_action || "Result recorded");
@@ -527,6 +530,32 @@ document.querySelectorAll("[data-prompt]").forEach((button) => {
 });
 
 const tabs = [...document.querySelectorAll("[role=tab]")];
+const wideLayout = window.matchMedia("(min-width: 1200px)");
+
+function setToolsOpen(open) {
+  const focusedInTools = $("workspace-tools").contains(document.activeElement);
+  $("app-shell").classList.toggle("tools-open", open);
+  $("workspace-tools").hidden = !open;
+  $("tools-toggle").setAttribute("aria-expanded", String(open));
+  $("tools-toggle").textContent = open ? wideLayout.matches ? "Hide tools" : "Back to chat" : "Tools";
+  if (!open && focusedInTools) $("tools-toggle").focus();
+}
+
+$("tools-toggle").addEventListener("click", () => setToolsOpen($("workspace-tools").hidden));
+$("alert-close").addEventListener("click", () => {
+  clearError();
+  if (errorFocus?.isConnected && errorFocus.getClientRects().length) errorFocus.focus();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !wideLayout.matches && !$("workspace-tools").hidden) {
+    setToolsOpen(false);
+    $("tools-toggle").focus();
+  }
+});
+wideLayout.addEventListener("change", () => setToolsOpen(wideLayout.matches));
+setToolsOpen(wideLayout.matches);
+if (!wideLayout.matches) $("history-details").open = false;
+
 function selectTab(tab) {
   tabs.forEach((item) => {
     const selected = item === tab;
@@ -573,8 +602,29 @@ $("branch-name").addEventListener("keydown", (event) => { if (event.key === "Ent
 $("decision-example").addEventListener("click", () => mutate(async () => {
   const example = await api("/api/decision-example");
   $("decision-input").value = JSON.stringify(example.problem || example, null, 2);
+  renderDecisionPreview();
   $("decision-result").replaceChildren();
 }));
+
+function renderDecisionPreview() {
+  const container = $("decision-preview");
+  container.replaceChildren();
+  let problem;
+  try { problem = JSON.parse($("decision-input").value); } catch {
+    container.append(node("p", "field-help", "The model needs valid JSON before it can be evaluated."));
+    return;
+  }
+  const actions = Array.isArray(problem?.actions) ? problem.actions : [];
+  const scenarios = Array.isArray(problem?.scenarios) ? problem.scenarios : [];
+  container.append(node("div", "section-label", `${actions.length} actions · ${scenarios.length} scenarios`));
+  const list = node("ul", "model-actions");
+  actions.forEach((action) => list.append(node("li", "", action?.name || "Unnamed action")));
+  container.append(list, node("p", "field-help", "Also considers waiting for information and abstaining. Edit the model to explore your own decision."));
+}
+$("decision-input").addEventListener("input", () => {
+  renderDecisionPreview();
+  $("decision-result").replaceChildren();
+});
 $("decision-run").addEventListener("click", () => mutate(async () => {
   let problem;
   try { problem = JSON.parse($("decision-input").value); } catch { throw new Error("The decision model needs valid JSON. Check its commas and quotation marks."); }
@@ -706,9 +756,15 @@ async function initialize() {
     try {
       const example = await api("/api/decision-example");
       $("decision-input").value = JSON.stringify(example.problem || example, null, 2);
-    } catch (error) { $("decision-help").textContent = `Example could not be loaded: ${error.message}. You can still enter a decision model.`; }
+      renderDecisionPreview();
+    } catch (error) {
+      $("decision-preview").replaceChildren(node("p", "field-help", "Example unavailable. Enter your decision model below."));
+      $("decision-editor").open = true;
+      $("decision-help").textContent = `Example could not be loaded: ${error.message}. You can still enter a decision model.`;
+    }
   } catch (error) {
     $("provider-badge").textContent = "Connection unavailable";
+    $("provider-description").textContent = "Workspace unavailable. Check that Dao is running, then reload.";
     $("branch-select").replaceChildren(node("option", "", "Unavailable"));
     $("history-list").replaceChildren(node("li", "empty-copy", "Refresh this page after the server is available."));
     showError(error);

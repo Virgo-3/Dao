@@ -70,7 +70,7 @@ In the terminal, type a message to converse, then try:
 
 `/branch experiment` creates a branch from the viewed checkpoint. Subsequent changes stay on that branch. `/restore ID_PREFIX` restores a reachable earlier checkpoint as a new revision. `/help` lists commands; `/quit` exits. See the [terminal guide](docs/terminal.md) for decision, relationship, audit, and artifact JSON imports.
 
-In the browser, use **Decision** to edit a scenario model, **Relationships** to assess beliefs and record observations, **Audit** to review evidence, and **Ledger** to inspect usage, memory, and artifacts.
+In the browser, open **Tools** for **Decision**, **Relationships**, **Audit**, and **Ledger**. Review a decision summary, expand its model to edit the JSON, or inspect beliefs, evidence, usage, memory, and artifacts. On smaller screens, **Back to chat** returns to the conversation.
 
 ## Enable live AI
 

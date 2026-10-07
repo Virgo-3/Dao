@@ -1,7 +1,5 @@
 # Dao
 
-**A flowing conversation, with room to change your mind.**
-
 Dao is a local conversational agent with versioned, branchable state. It saves messages, memory, decisions, audits, relationships, artifacts, and usage so you can explore alternatives and revisit earlier checkpoints. Its decision engine compares **act**, **wait**, and **abstain**, accounting for uncertainty, reversibility, and the value of additional information.
 
 Dao starts in an **offline demo** with deterministic replies and no model calls. Live AI is optional. The terminal and browser workspace both support saved state, branches, decisions, and evidence review.

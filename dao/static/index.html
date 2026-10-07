@@ -41,7 +41,7 @@
 
     <aside class="inspector" aria-label="Decision and evidence tools">
       <div class="inspector-heading"><span class="eyebrow">THE SPACE TO CONSIDER</span><span aria-hidden="true">✧</span></div>
-      <div class="tabs" role="tablist" aria-label="Workspace tools"><button id="decision-tab" role="tab" aria-controls="decision-panel" aria-selected="true" tabindex="0" data-panel="decision-panel">Decision</button><button id="audit-tab" role="tab" aria-controls="audit-panel" aria-selected="false" tabindex="-1" data-panel="audit-panel">Audit</button><button id="ledger-tab" role="tab" aria-controls="ledger-panel" aria-selected="false" tabindex="-1" data-panel="ledger-panel">Ledger</button></div>
+      <div class="tabs" role="tablist" aria-label="Workspace tools"><button id="decision-tab" role="tab" aria-controls="decision-panel" aria-selected="true" tabindex="0" data-panel="decision-panel">Decision</button><button id="relationships-tab" role="tab" aria-controls="relationships-panel" aria-selected="false" tabindex="-1" data-panel="relationships-panel">Relationships</button><button id="audit-tab" role="tab" aria-controls="audit-panel" aria-selected="false" tabindex="-1" data-panel="audit-panel">Audit</button><button id="ledger-tab" role="tab" aria-controls="ledger-panel" aria-selected="false" tabindex="-1" data-panel="ledger-panel">Ledger</button></div>
       <section id="decision-panel" role="tabpanel" aria-labelledby="decision-tab" class="tool-panel">
         <div class="tool-intro"><span class="tool-glyph" aria-hidden="true">⑂</span><h2>Act, explore, or wait.</h2><p>Compare outcomes, account for uncertainty, and give reversibility a place in the decision.</p></div>
         <div class="section-label"><label for="decision-input">Decision model</label><button id="decision-example" class="text-button" data-mutation>Load example ↺</button></div>
@@ -49,6 +49,22 @@
         <button id="decision-run" class="primary-button full-width" data-mutation>Consider the paths <span aria-hidden="true">→</span></button>
         <div id="decision-result" class="result-area" aria-live="polite"></div>
         <div class="principle"><span aria-hidden="true">◷</span><p><strong>Waiting can be a choice.</strong><br>New information can be worth more than acting immediately.</p></div>
+      </section>
+      <section id="relationships-panel" role="tabpanel" aria-labelledby="relationships-tab" class="tool-panel" hidden>
+        <div class="tool-intro"><span class="tool-glyph" aria-hidden="true">↔</span><h2>See the relationships.</h2><p>Record beliefs, affected goals, and observations. Coherence belongs beside uncertainty and unresolved harm.</p></div>
+        <div id="relationship-summary" class="relationship-summary" aria-live="polite"></div>
+        <p class="field-help">Weights and scope stay in versioned state. Reclassifying an adverse belief does not close its conflict.</p>
+        <div class="section-label"><span>Unresolved conflicts</span><span id="conflict-count" class="count">0</span></div>
+        <div id="relationship-conflicts" class="event-list"></div>
+        <details class="relationship-details"><summary>Inspect graph and transition estimates</summary><div id="relationship-details"></div></details>
+        <div class="section-label"><label for="relationship-input">Relationship operation</label><button id="relationship-refresh" class="text-button" data-mutation>Refresh ↺</button></div>
+        <p id="relationship-help" class="field-help">Save one JSON operation at a time. Examples form a sequence: add the two nodes, define the relation, then assess or observe it. Sources below are illustrative; replace them with your evidence.</p>
+        <div class="relationship-examples" aria-label="Relationship operation examples">
+          <button class="text-button" data-relationship-example="action" data-mutation>1. Action</button><button class="text-button" data-relationship-example="goal" data-mutation>2. Goal</button><button class="text-button" data-relationship-example="relation" data-mutation>3. Relation</button><button class="text-button" data-relationship-example="assess" data-mutation>4. Assess</button><button class="text-button" data-relationship-example="unknown" data-mutation>Unknown</button><button class="text-button" data-relationship-example="observe" data-mutation>Observe</button><button class="text-button" data-relationship-example="reassess" data-mutation>Reassess</button><button class="text-button" data-relationship-example="resolve" data-mutation>Resolve</button>
+        </div>
+        <textarea id="relationship-input" class="code-input" rows="13" spellcheck="false" aria-describedby="relationship-help" data-mutation>{}</textarea>
+        <button id="relationship-save" class="primary-button full-width" data-mutation>Save operation <span aria-hidden="true">→</span></button>
+        <p id="relationship-status" class="field-help" role="status"></p>
       </section>
       <section id="audit-panel" role="tabpanel" aria-labelledby="audit-tab" class="tool-panel" hidden>
         <div class="tool-intro"><span class="tool-glyph" aria-hidden="true">◈</span><h2>Evidence before action.</h2><p>An audit adjudicates a claim. Its verdict governs whether an artifact can be written.</p></div>

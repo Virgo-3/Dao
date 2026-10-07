@@ -10,6 +10,8 @@ import uuid
 from .audit import adjudicate
 from .decision import demo_payload, evaluate
 from .provider import ProviderError, demo_stream, openai_stream, reservation
+from .relationships import (apply as apply_relationships, blocking_conflicts,
+                            digest as relationship_digest, resolution_claim, summarize)
 from .store import ConflictError
 
 
@@ -43,9 +45,52 @@ class Dao:
         return head
 
     def snapshot(self, branch="main"):
+        head = self.store.head(branch)
+        graph = head["state"].get("relationships")
+        summary = {**summarize(graph), "digest": relationship_digest(graph)}
         return {"config": self.config.public(), "branches": self.store.branches(),
-                "head": self.store.head(branch), "history": self.store.history(branch),
+                "head": head, "history": self.store.history(branch),
+                "relationships": summary, "relationship_digest": summary["digest"],
                 "usage": self.store.usage(), "events": self.store.events(branch)}
+
+    def evaluate_problem(self, state, problem):
+        graph = state.get("relationships")
+        blocked = {}
+        severe = blocking_conflicts(graph)
+        actions = problem.get("actions", []) if isinstance(problem, dict) else []
+        if isinstance(actions, list):
+            for action in actions:
+                name = action.get("name") if isinstance(action, dict) else None
+                if isinstance(name, str):
+                    name = name.strip()
+                    conflicts = [conflict for conflict in severe
+                                 if not conflict["actions"] or name in conflict["actions"]]
+                    if conflicts:
+                        blocked[name] = [conflict["relation_id"] for conflict in conflicts]
+        result = evaluate(problem, blocked_actions=blocked)
+        result["relationships"] = summarize(graph)
+        result["relationship_digest"] = relationship_digest(graph)
+        return result
+
+    def adjudicate_problem(self, state, problem):
+        problem = dict(problem)
+        action = problem.pop("action", None)
+        if action is not None:
+            action = text(action, "action", 200)
+        result = adjudicate(problem)
+        graph = state.get("relationships")
+        conflicts = blocking_conflicts(graph, action)
+        result["action"] = action
+        result["relationship_digest"] = relationship_digest(graph)
+        result["blocked_conflicts"] = [conflict["relation_id"] for conflict in conflicts]
+        if conflicts:
+            result["allowed"] = False
+            result["verdict"] = "blocked"
+            result["reasons"].append("Unresolved severe relationship conflicts withhold permission under this policy.")
+        # Permission binds evidence, action scope and relationship policy state.
+        canonical = json.dumps(result, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+        result["verdict_id"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        return result
 
     def mutate(self, route, data):
         if route == "/api/branches":
@@ -66,14 +111,29 @@ class Dao:
                 state["memory"][key] = value
                 kind, label = "memory", f"Remember {key}"
             elif route == "/api/decision":
-                result = evaluate(data.get("problem"))
+                result = self.evaluate_problem(state, data.get("problem"))
                 state["decisions"].append({"id": uuid.uuid4().hex, "problem": data["problem"], "result": result})
                 kind, label = "decision", f"Decision: {result['recommendation']}"
             elif route == "/api/audit":
                 problem = {k: v for k, v in data.items() if k not in {"branch", "expected_head"}}
-                result = adjudicate(problem)
+                result = self.adjudicate_problem(state, problem)
                 state.setdefault("audits", []).append(result)
                 kind, label = "adjudication", f"Audit: {result['verdict']}"
+            elif route == "/api/relationships":
+                problem = {k: v for k, v in data.items() if k not in {"branch", "expected_head"}}
+                if problem.get("operation") == "resolve":
+                    if set(problem) - {"operation", "relation_id", "evidence", "threshold", "require_sources"}:
+                        raise ValueError("Resolution accepts only relation_id, evidence, threshold, and require_sources")
+                    claim = resolution_claim(state.get("relationships"), problem.get("relation_id"))
+                    verdict = adjudicate({"claim": claim, **{k: v for k, v in problem.items()
+                                         if k in {"evidence", "threshold", "require_sources"}}})
+                    problem = {"operation": "resolve", "relation_id": problem.get("relation_id"), "verdict": verdict}
+                graph, event = apply_relationships(state.get("relationships"), problem)
+                state["relationships"] = graph
+                if problem["operation"] == "resolve":
+                    state.setdefault("audits", []).append(problem["verdict"])
+                result = {**summarize(graph), "digest": relationship_digest(graph), "event": event}
+                kind, label = "relationship." + problem["operation"], "Relationship " + problem["operation"]
             elif route == "/api/artifact":
                 name = text(data.get("name"), "name", 100)
                 content = text(data.get("content"), "content", 32768)
@@ -81,6 +141,13 @@ class Dao:
                 verdict = next((a for a in reversed(state.get("audits", [])) if a["claim"] == claim), None)
                 if not verdict or not verdict["allowed"] or verdict["verdict_id"] != data.get("verdict_id"):
                     raise ValueError("Artifact needs an allowed adjudication bound to its exact name and content digest")
+                if verdict.get("action") is not None:
+                    raise ValueError("Artifact needs an unscoped adjudication")
+                current_digest = relationship_digest(state.get("relationships"))
+                if verdict.get("relationship_digest") != current_digest:
+                    raise ValueError("Relationship policy changed; adjudicate the artifact again")
+                if blocking_conflicts(state.get("relationships")):
+                    raise ValueError("Unresolved severe relationship conflicts withhold artifact permission")
                 if len(state["artifacts"]) >= 100 and name not in state["artifacts"]:
                     raise ValueError("Artifacts are limited to 100 entries")
                 state["artifacts"][name] = {"content": content, "verdict_id": verdict["verdict_id"]}
@@ -118,14 +185,15 @@ class Dao:
                     stream = iter([{"type": "delta", "text": f"Saved {key}: {value}. This memory is part of this branch’s state."}])
                 elif not literal and message == "/decide":
                     problem = demo_payload()
-                    result = evaluate(problem)
+                    result = self.evaluate_problem(state, problem)
                     state["decisions"].append({"id": uuid.uuid4().hex, "problem": problem, "result": result})
                     stream = iter([{"type": "delta", "text": "Decision example: " + result["reason"] + "\n\nInspect the Decision panel for the inputs and utility calculation."}])
                 else:
                     active_id = uuid.uuid4().hex
                     self.store.reserve_usage(branch, active_id, reserve, self.config.token_budget)
                     self.store.append_event(branch, "model_attempt", {"request_id": active_id, "provider": self.config.provider})
-                    stream = demo_stream(state) if self.config.provider == "demo" else openai_stream(state, self.config, evaluate)
+                    stream = (demo_stream(state) if self.config.provider == "demo" else
+                              openai_stream(state, self.config, lambda problem: self.evaluate_problem(state, problem)))
                 for event in stream:
                     if event["type"] == "delta":
                         delta = event["text"]

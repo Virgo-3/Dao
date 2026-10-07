@@ -30,6 +30,9 @@ HELP = """Chat by typing a message. Commands:
   /restore ID_PREFIX    Restore a unique reachable checkpoint as a new commit
   /remember KEY=VALUE   Save branch memory through the runtime
   /memory               Show this checkpoint's saved memory
+  /relationships        Show relationship coherence, coverage, and observations
+  /conflicts            Show unresolved relationship conflicts
+  /relate PATH          Apply one relationship operation JSON (up to 128 KiB)
   /decide               Run the decision example
   /decision PATH        Evaluate a decision JSON file (up to 128 KiB)
   /audit PATH           Adjudicate an evidence JSON file (up to 128 KiB)
@@ -263,7 +266,7 @@ class Terminal:
             decisions = self.head["state"].get("decisions", [])
             if decisions:
                 self._json(decisions[-1]["result"])
-        elif command in {"/help", "/quit", "/branches", "/head", "/history", "/memory", "/usage", "/verify"}:
+        elif command in {"/help", "/quit", "/branches", "/head", "/history", "/memory", "/relationships", "/conflicts", "/usage", "/verify"}:
             self._no_argument(command, argument)
             if command == "/quit":
                 return False
@@ -287,6 +290,20 @@ class Terminal:
                     self._write(f"{key} = {value}\n")
             elif command == "/usage":
                 self._json(self.app.store.usage())
+            elif command in {"/relationships", "/conflicts"}:
+                # Read the viewed checkpoint, just like /memory. /head refreshes it.
+                from .relationships import summarize
+                summary = summarize(self.head["state"].get("relationships"))
+                if command == "/conflicts":
+                    conflicts = summary["unresolved_conflicts"]
+                    if not conflicts:
+                        self._write("No unresolved relationship conflicts at this checkpoint.\n")
+                    self._json(conflicts)
+                else:
+                    coherence = summary["coherence"]
+                    label = "Unassessed" if coherence is None else f"{coherence:.1%}"
+                    self._write(f"Coherence: {label}; assessed coverage: {summary['coverage']:.1%}\n")
+                    self._json(summary)
             elif command == "/verify":
                 result = self.app.store.verify()
                 if result["ok"]:
@@ -319,7 +336,7 @@ class Terminal:
                 raise ValueError("Checkpoint prefix is ambiguous; use more characters")
             result = self._mutate("/api/restore", commit_id=candidates[0]["id"])
             self._write(f"Restored as checkpoint {result['head']['id'][:12]}; usage is retained.\n")
-        elif command in {"/decision", "/audit", "/artifact"}:
+        elif command in {"/decision", "/audit", "/artifact", "/relate"}:
             payload = self._load(argument)
             if command == "/decision":
                 result = self._mutate("/api/decision", problem=payload)
@@ -328,7 +345,8 @@ class Terminal:
                     raise ValueError("Imported JSON cannot select a branch or override the expected head")
                 if command == "/artifact" and set(payload) - {"name", "content", "verdict_id"}:
                     raise ValueError("Artifact JSON accepts only name, content, and verdict_id")
-                result = self._mutate("/api" + command, **payload)
+                route = "/api/relationships" if command == "/relate" else "/api" + command
+                result = self._mutate(route, **payload)
             if result.get("result") is not None:
                 self._json(result["result"])
             else:

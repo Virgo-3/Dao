@@ -94,6 +94,7 @@ def _normalize(payload: Any) -> dict[str, Any]:
     payload = _object(payload, "decision", {
         "scenarios", "actions", "signals", "waiting_cost", "discount",
         "irreversibility_penalty", "risk_aversion", "confidence_margin",
+        "observation_cost", "delay_cost", "reconsider_when",
     })
     scenarios = []
     for index, raw in enumerate(_array(payload.get("scenarios"), "scenarios", nonempty=True)):
@@ -157,6 +158,9 @@ def _normalize(payload: Any) -> dict[str, Any]:
         "irreversibility_penalty": _number(payload.get("irreversibility_penalty", 0), "irreversibility_penalty", minimum=0),
         "risk_aversion": _number(payload.get("risk_aversion", 0), "risk_aversion", minimum=0),
         "confidence_margin": _number(payload.get("confidence_margin", 0), "confidence_margin", minimum=0),
+        "observation_cost": _number(payload.get("observation_cost", 0), "observation_cost", minimum=0),
+        "delay_cost": _number(payload.get("delay_cost", 0), "delay_cost", minimum=0),
+        "reconsider_when": _name(payload["reconsider_when"], "reconsider_when") if "reconsider_when" in payload else None,
     }
 
 
@@ -193,7 +197,7 @@ def _score(action: dict[str, Any], probabilities: list[float], model: dict[str, 
 
 def _best(scores: list[dict[str, Any]]) -> tuple[dict[str, Any] | None, float]:
     """Prefer abstention at zero, then reversibility for numerical action ties."""
-    maximum = max(0.0, *(score["utility"] for score in scores))
+    maximum = max([0.0, *(score["utility"] for score in scores)])
     if maximum <= 0:
         return None, 0.0
     tied = [score for score in scores
@@ -202,7 +206,7 @@ def _best(scores: list[dict[str, Any]]) -> tuple[dict[str, Any] | None, float]:
     return best, maximum
 
 
-def evaluate(payload: Any) -> dict[str, Any]:
+def evaluate(payload: Any, *, blocked_actions: dict[str, list[str]] | None = None) -> dict[str, Any]:
     """Validate and score a decision; return JSON-compatible, deterministic evidence.
 
     ``confidence_margin`` is a utility buffer, not a statistical confidence
@@ -215,6 +219,13 @@ def evaluate(payload: Any) -> dict[str, Any]:
     work = len(model["actions"]) * len(model["scenarios"]) * (len(model["signals"]) + 1)
     if work > MAX_DECISION_WORK:
         raise ValueError(f"Decision workload exceeds {MAX_DECISION_WORK} action-scenario evaluations")
+    # The runtime supplies these constraints; they cannot be supplied by the model
+    # in the decision JSON. Validate the whole problem before excluding actions.
+    blocked_actions = blocked_actions or {}
+    blocked = [{"name": action["name"], "conflicts": blocked_actions[action["name"]]}
+               for action in model["actions"] if action["name"] in blocked_actions]
+    model["actions"] = [action for action in model["actions"]
+                        if action["name"] not in blocked_actions]
     prior = [scenario["probability"] for scenario in model["scenarios"]]
     try:
         scores = [_score(action, prior, model) for action in model["actions"]]
@@ -246,7 +257,8 @@ def evaluate(payload: Any) -> dict[str, Any]:
         else:
             after_signal = baseline
         information_value = max(0.0, _finite(after_signal - baseline, "expected value of information"))
-        wait_utility = _finite(model["discount"] * after_signal - model["waiting_cost"], "wait utility")
+        total_waiting_cost = _sum((model["waiting_cost"], model["observation_cost"], model["delay_cost"]), "total waiting cost")
+        wait_utility = _finite(model["discount"] * after_signal - total_waiting_cost, "wait utility")
     except OverflowError as exc:
         raise ValueError("decision calculations exceed the finite numerical range") from exc
 
@@ -265,6 +277,7 @@ def evaluate(payload: Any) -> dict[str, Any]:
         reason = "No immediate action or modeled wait option clears the utility buffer above abstention."
     return {
         "scores": scores,
+        "blocked_actions": blocked,
         "recommendation": recommendation,
         "selected_action": selected_action,
         "best_immediate_action": best["name"] if best else None,
@@ -273,6 +286,12 @@ def evaluate(payload: Any) -> dict[str, Any]:
         "expected_value_of_information": information_value,
         "wait_utility": wait_utility,
         "signal_analysis": signal_analysis,
+        "waiting_plan": {"signals": [signal["name"] for signal in model["signals"]],
+                         "reconsider_when": model["reconsider_when"] or (
+                             "Reconsider when a modeled signal is observed; recheck current constraints and costs."
+                             if model["signals"] else "Specify an informative observation before choosing to wait."),
+                         "observation_cost": model["observation_cost"], "delay_cost": model["delay_cost"],
+                         "other_waiting_cost": model["waiting_cost"], "total_waiting_cost": total_waiting_cost},
         "reason": reason,
         "assumptions": [
             "Probabilities, payoffs, reliability of signals, and costs are caller-supplied assumptions, not verified facts.",
@@ -283,6 +302,8 @@ def evaluate(payload: Any) -> dict[str, Any]:
             "Abstention has zero utility; action ties prefer reversibility and then input order.",
             "Confidence margin is a utility buffer, not a confidence interval.",
             "Without explicit signals, waiting has zero information value and never assumes uncertainty falls on its own.",
+            "Observation and delay costs are additional utility costs; waiting_cost covers other costs and must not double-count them.",
+            "Runtime relationship constraints exclude actions from both immediate and posterior choices; coherence does not replace utility.",
         ],
     }
 

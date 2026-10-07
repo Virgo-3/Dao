@@ -6,7 +6,6 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from dao.audit import adjudicate
 from dao.config import Config
 from dao.decision import demo_payload
 from dao.provider import ProviderError
@@ -74,7 +73,7 @@ class TerminalTests(unittest.TestCase):
 
     def test_imports_use_current_branch_and_latest_artifact_gate(self):
         audit = self.audit_payload()
-        verdict = adjudicate(audit)
+        verdict = self.app.adjudicate_problem(self.store.head()["state"], audit)
         audit_file = self.file("audit.json", audit)
         contested_file = self.file("contested.json", self.audit_payload(contradict=True))
         artifact_file = self.file("artifact.json", {"name": "plan", "content": "Pilot first", "verdict_id": verdict["verdict_id"]})
@@ -125,7 +124,7 @@ class TerminalTests(unittest.TestCase):
         payload = json.loads(target.read_text(encoding="utf-8"))
         self.assertEqual(payload["schema"], "dao-export-v1")
         self.assertEqual(payload["head"]["state"]["memory"], {"next": "Study"})
-        self.assertEqual(set(payload), {"schema", "config", "branches", "head", "history", "usage", "events"})
+        self.assertEqual(set(payload), {"schema", "config", "branches", "head", "history", "usage", "events", "relationships", "relationship_digest"})
         self.assertNotIn("api_key", payload["config"])
         self.assertEqual(output.count("Export created"), 1)
         self.assertIn("already exists", output)
@@ -133,6 +132,56 @@ class TerminalTests(unittest.TestCase):
         sentinel.write_text("keep this file", encoding="utf-8")
         self.run_terminal(f"/export {sentinel}\n/quit\n")
         self.assertEqual(sentinel.read_text(), "keep this file")
+
+    def test_relationship_commands_preserve_branch_conflicts_and_usage(self):
+        operations = [
+            {"operation": "node", "node": {"id": "launch", "label": "Full launch", "kind": "action", "importance": 1}},
+            {"operation": "node", "node": {"id": "trust", "label": "Customer trust", "kind": "goal", "importance": 20}},
+            {"operation": "relation", "relation": {"id": "launch-trust", "source": "launch", "target": "trust", "kind": "effect", "weight": 20, "severe": True, "actions": ["Full launch"]}},
+            {"operation": "assess", "relation_id": "launch-trust", "belief": {"positive": 0, "neutral": 0, "negative": 1}, "source": "Review", "content": "An unresolved customer impact"},
+        ]
+        files = [self.file(f"relation-{index}.json", operation) for index, operation in enumerate(operations)]
+        unknown = self.file("unknown.json", {"operation": "assess", "relation_id": "launch-trust", "belief": None, "source": "Uncertainty review", "content": "The effect is now unknown"})
+        commands = "/relationships\n" + "".join(f"/relate {path}\n" for path in files)
+        commands += f"/conflicts\n/branch exploratory\n/relate {unknown}\n/relationships\n/switch main\n/relationships\n/quit\n"
+        code, output, _ = self.run_terminal(commands)
+        self.assertEqual(code, 0)
+        self.assertNotIn("Error:", output)
+        self.assertIn("Coherence: Unassessed", output)
+        self.assertIn('"relation_id": "launch-trust"', output)
+        self.assertEqual(self.app.snapshot("main")["relationships"]["negative_weight"], 20)
+        self.assertEqual(self.app.snapshot("exploratory")["relationships"]["unknown_weight"], 20)
+        self.assertEqual(len(self.app.snapshot("exploratory")["relationships"]["unresolved_conflicts"]), 1)
+        self.assertEqual(self.store.usage()["entries"], [])
+        self.assertTrue(self.store.verify()["ok"])
+
+    def test_relationship_import_cannot_override_branch_or_expected_head(self):
+        initial = self.store.head()["id"]
+        node = {"operation": "node", "node": {"id": "goal", "label": "Goal", "kind": "goal", "importance": 1}}
+        branch_override = self.file("branch-override.json", {**node, "branch": "main"})
+        head_override = self.file("head-override.json", {**node, "expected_head": initial})
+        code, output, _ = self.run_terminal(f"/relate {branch_override}\n/relate {head_override}\n/conflicts\n/quit\n")
+        self.assertEqual(code, 0)
+        self.assertEqual(output.count("cannot select a branch"), 2)
+        self.assertIn("No unresolved relationship conflicts", output)
+        self.assertEqual(self.store.head()["id"], initial)
+
+    def test_relationship_summary_uses_viewed_checkpoint_until_refreshed(self):
+        store, app = self.store, self.app
+        class ConcurrentInput:
+            def __init__(self):
+                self.lines = iter(["/relationships\n", "/head\n", "/relationships\n", "/quit\n"])
+                self.first = True
+            def readline(self):
+                if self.first:
+                    self.first = False
+                    app.mutate("/api/relationships", {"expected_head": store.head()["id"], "operation": "node", "node": {"id": "goal", "label": "Goal", "kind": "goal", "importance": 1}})
+                return next(self.lines, "")
+        code, output, _ = self.run_terminal("", input_stream=ConcurrentInput())
+        self.assertEqual(code, 0)
+        self.assertIn('"node_count": 0', output)
+        self.assertIn('"node_count": 1', output)
+        self.assertEqual(len(self.store.history()), 2)
 
     def test_stale_prompt_rejects_change_until_head_refresh(self):
         store, app = self.store, self.app

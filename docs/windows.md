@@ -1,8 +1,8 @@
 # Dao on Windows
 
-Dao 0.2.0 has a standalone **Windows x64 console executable**. Python is bundled by the executable builder; you do not need to install Python to run `Dao.exe`.
+Dao 0.3.0 has a standalone **Windows x64 console executable**. Python is bundled by the executable builder; you do not need to install Python to run `Dao.exe`.
 
-Download `Dao-windows-x64-0.2.0.zip` from [GitHub Releases](https://github.com/Virgo-3/Dao-1/releases/latest), then extract it to a folder of your choice. The package contains `Dao.exe`, `SHA256SUMS`, `LICENSE`, and `README.txt`. The [Windows executable workflow](https://github.com/Virgo-3/Dao-1/actions/workflows/windows-build.yml) also provides build artifacts.
+Download `Dao-windows-x64-0.3.0.zip` from [GitHub Releases](https://github.com/Virgo-3/Dao-1/releases/latest), then extract it to a folder of your choice. The package contains `Dao.exe`, `SHA256SUMS`, `LICENSE`, and `README.txt`. The [Windows executable workflow](https://github.com/Virgo-3/Dao-1/actions/workflows/windows-build.yml) also provides build artifacts.
 
 ## Start a conversation
 
@@ -45,6 +45,7 @@ Terminal and browser use the same state engine. The default branch is `main`; `-
 | `/branches`, `/branch NAME`, `/switch NAME` | List, fork from the current checkpoint, or switch branches |
 | `/history`, `/restore ID_PREFIX`, `/head` | Inspect revisions, append a restoration to a unique reachable ancestor, or refresh |
 | `/memory`, `/remember KEY=VALUE` | Inspect or save branch-local memory |
+| `/relationships`, `/conflicts`, `/relate PATH` | Inspect the graph, review unresolved conflicts, or apply an operation JSON file |
 | `/usage`, `/verify` | Inspect lifetime accounting or verify state integrity |
 | `/decide`, `/decision PATH` | Run the example or a JSON decision model |
 | `/audit PATH`, `/artifact PATH` | Adjudicate a JSON claim or write an artifact authorized for its exact content |
@@ -64,7 +65,7 @@ $env:DAO_MODEL = "gpt-4.1-mini"
 .\Dao.exe
 ```
 
-Use a Responses API model available to your account. The executable reads process environment variables and does not load `.env` files automatically. Credentials and conversation state are not included in the downloadable package. Live inference sends the current conversation and saved memory to OpenAI; credentials remain in the local process. See the [main README](../README.md) for provider limits, token reservation, optional price settings, and security boundaries.
+Use a Responses API model available to your account. The executable reads process environment variables and does not load `.env` files automatically. Credentials and conversation state are not included in the downloadable package. Live inference sends the current conversation, saved memory, and relationship context to OpenAI; credentials remain in the local process. See the [project guide](overview.md) for provider limits, token reservation, optional price settings, and security boundaries.
 
 ## Verify the download
 

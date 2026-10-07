@@ -63,7 +63,10 @@ Reversibility and discount are between zero and one. Defaults are:
 | `rollback_cost` | 0 | Additional cost in losing scenarios |
 | `reversibility` | 0 | Unknown recovery gets no reversibility credit |
 | `signals` | `[]` | No modeled observation |
-| `waiting_cost` | 0 | Cost of obtaining the observation and delaying |
+| `waiting_cost` | 0 | Other waiting costs, or combined cost when separate costs are omitted |
+| `observation_cost` | 0 | Additional cost of obtaining the observation |
+| `delay_cost` | 0 | Additional cost of delay and opportunities lost |
+| `reconsider_when` | derived from signals | Operator's review trigger or deadline, at most 200 characters |
 | `discount` | 1 | Multiplier for utility after the observation |
 | `irreversibility_penalty` | 0 | No additional irreversibility charge |
 | `risk_aversion` | 0 | Risk-neutral evaluation |
@@ -113,7 +116,7 @@ p(s | y) = p(s)*L(y,s)/P(y)
 best_after(y) = max(0, max_a utility(a, p(. | y)))
 after_signal = sum_y P(y)*best_after(y)
 EVSI = max(0, after_signal - baseline)
-wait_utility = discount*after_signal - waiting_cost
+wait_utility = discount*after_signal - waiting_cost - observation_cost - delay_cost
 ```
 
 Variance and the risk penalty are recomputed under each posterior. An impossible
@@ -229,3 +232,11 @@ exposes an information-contingent recommendation rather than claiming a general
 optimal control policy. Consequences absent from the scenarios remain absent
 from the calculation. The decision tool only returns data; the runtime owns
 state changes and permitted actions.
+
+## Waiting plans and relationship constraints
+
+`observation_cost` and `delay_cost` are optional additional nonnegative utility costs. Keep them out of `waiting_cost` when using the separate fields to avoid double-counting. `reconsider_when` can name an event or deadline; it is a review instruction recorded in the result, not a scheduled task. The returned `waiting_plan` exposes modeled signals, each cost, total waiting cost, and a reconsideration condition. Re-evaluate the current graph and assumptions when the signal arrives.
+
+The runtime excludes exact action names affected by unresolved severe relationship conflicts before both prior and posterior optimization. The complete submitted problem is still validated and included in the computation limit. When every action is excluded, abstention remains available. Action applicability is operator-declared and decision results remain advisory; no external action authorization follows from a recommendation. Weighted coherence and empirical transition summaries accompany results as diagnostics and do not replace utilities or automatically supply calibrated scenario probabilities.
+
+The pure evidence adjudicator continues hashing normalized evidence. Runtime permission identifiers additionally bind the action scope and current graph digest. Artifact saving requires an unscoped current permission and no severe unresolved conflicts. Graph edits invalidate earlier artifact permission; conflict-resolution evidence is retained among the versioned audits.

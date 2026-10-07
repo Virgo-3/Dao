@@ -263,6 +263,7 @@ function renderWorkspace() {
   renderHistory();
   renderConversation();
   renderUsage();
+  renderRelationships();
   const saved = versionedState();
   if (saved.decisions?.length) renderDecision(saved.decisions[saved.decisions.length - 1].result);
   else $("decision-result").replaceChildren();
@@ -274,10 +275,41 @@ function renderWorkspace() {
   setBusy(busy);
 }
 
+function renderRelationships() {
+  const summary = workspace?.relationships || {};
+  const coherence = summary.coherence;
+  const coverage = summary.coverage;
+  const conflicts = Array.isArray(summary.unresolved_conflicts) ? summary.unresolved_conflicts : [];
+  const severe = conflicts.filter((conflict) => conflict.severe === true);
+  const percent = (value) => typeof value === "number" && Number.isFinite(value) ? `${formatNumber(value * 100, 1)}%` : "Unassessed";
+  $("relationship-summary").replaceChildren(
+    metricCard(coherence === null || coherence === undefined ? "Unassessed" : percent(coherence), "Conditional coherence"),
+    metricCard(percent(coverage), "Assessed coverage"),
+    metricCard(formatNumber(summary.unknown_weight ?? 0, 2), "Unknown weight"),
+    metricCard(String(severe.length), "Severe unresolved conflicts")
+  );
+  $("conflict-count").textContent = String(conflicts.length);
+  $("relationship-conflicts").replaceChildren();
+  if (!conflicts.length) $("relationship-conflicts").append(node("p", "empty-copy", "No unresolved conflicts at this checkpoint."));
+  conflicts.forEach((conflict) => {
+    const item = node("details", `event-item${conflict.severe ? " conflict-severe" : ""}`);
+    const relation = versionedState().relationships?.relations?.[conflict.relation_id];
+    const actions = Array.isArray(conflict.actions) ? conflict.actions : relation?.actions || [];
+    item.append(node("summary", "", `${conflict.severe ? "Severe · " : ""}${conflict.relation_id || conflict.id || "Relationship conflict"}`));
+    item.append(node("p", "", actions.length ? `Affected actions: ${actions.join(", ")}` : "Affects every action."));
+    item.append(node("pre", "json-preview", JSON.stringify(conflict, null, 2)));
+    $("relationship-conflicts").append(item);
+  });
+  $("relationship-details").replaceChildren();
+  addJsonDetails($("relationship-details"), summary, "Weighted summary and transition estimates");
+  addJsonDetails($("relationship-details"), versionedState().relationships || {}, "Versioned nodes, relations, beliefs, and observations");
+}
+
 async function refresh(nextBranch = branch) {
   const response = await api(`/api/state?branch=${encodeURIComponent(nextBranch)}`);
   if (response.csrf) csrf = response.csrf;
   workspace = { ...response, config: response.config || workspace?.config };
+  if (nextBranch !== branch) $("relationship-status").textContent = "";
   branch = nextBranch;
   renderWorkspace();
 }
@@ -343,7 +375,13 @@ function renderDecision(result) {
   const recommendation = result.recommendation === "act" ? `Act: ${result.selected_action || "selected action"}` : result.recommendation === "wait" ? "Wait for information" : result.recommendation === "abstain" ? "Keep the choice open" : scalar(result.recommendation || result.selected_action || "Result recorded");
   summary.append(node("h3", "", recommendation));
   if (result.reason) summary.append(node("p", "", scalar(result.reason)));
+  if (result.recommendation === "wait" && result.waiting_plan?.reconsider_when) {
+    summary.append(node("p", "", `Reconsider: ${scalar(result.waiting_plan.reconsider_when)}`));
+  }
   container.append(summary);
+  if (Array.isArray(result.blocked_actions) && result.blocked_actions.length) {
+    container.append(node("p", "relationship-warning", `Withheld by unresolved severe conflicts: ${result.blocked_actions.map((action) => typeof action === "string" ? action : action.name || action.action || scalar(action)).join(", ")}`));
+  }
   const metrics = [
     ["Value of new information", result.expected_value_of_information],
     ["Utility of waiting", result.wait_utility]
@@ -379,7 +417,10 @@ function renderAudit(result) {
   const container = $("audit-result");
   container.replaceChildren(node("div", "result-heading", "ADJUDICATION RESULT"));
   const card = node("div", "recommendation-card");
-  card.append(node("div", "result-kicker", result.allowed ? "Action permitted" : "Action withheld"), node("h3", "", titleCase(result.verdict || (result.allowed ? "Allowed" : "Review required"))));
+  const graphDigest = workspace?.relationship_digest || workspace?.relationships?.digest;
+  const stale = Boolean(graphDigest && result.relationship_digest !== graphDigest);
+  card.append(node("div", "result-kicker", stale ? "Prior adjudication" : result.allowed ? "Action permitted" : "Action withheld"), node("h3", "", stale ? "Review relationship changes" : titleCase(result.verdict || (result.allowed ? "Allowed" : "Review required"))));
+  if (stale) card.append(node("p", "", "This verdict predates the current relationship state. Adjudicate again before saving an artifact."));
   const reasons = Array.isArray(result.reasons) ? result.reasons : result.reasons ? [result.reasons] : [];
   reasons.forEach((reason) => card.append(node("p", "", scalar(reason))));
   container.append(card);
@@ -401,10 +442,12 @@ async function updateArtifactGate() {
   let claim = "";
   try { claim = await artifactClaim(name, content); } catch { /* The prepare action explains an unavailable Web Crypto API. */ }
   if (name !== $("artifact-name").value.trim() || content !== $("artifact-content").value.trim()) return;
-  const allowed = Boolean(name && content && auditVerdict?.allowed && auditVerdict.verdict_id && auditVerdict.claim === claim);
+  const graphDigest = workspace?.relationship_digest || workspace?.relationships?.digest;
+  const currentGraph = !graphDigest || auditVerdict?.relationship_digest === graphDigest;
+  const allowed = Boolean(name && content && auditVerdict?.allowed && auditVerdict.verdict_id && auditVerdict.claim === claim && !auditVerdict.action && currentGraph);
   $("artifact-save").dataset.intrinsicDisabled = String(!allowed);
   $("artifact-save").disabled = busy || !allowed || !ready;
-  $("artifact-status").textContent = allowed ? "An allowed verdict matches this artifact’s name and content." : auditVerdict ? "Saving needs an allowed verdict matching this exact name and content." : "Prepare and adjudicate this artifact’s claim to enable saving.";
+  $("artifact-status").textContent = allowed ? "An allowed verdict matches this artifact’s name, content, and relationship state." : auditVerdict ? "Saving needs a current unscoped verdict matching this exact name, content, and relationship state." : "Prepare and adjudicate this artifact’s claim to enable saving.";
 }
 
 async function submitChat() {
@@ -538,6 +581,41 @@ $("decision-run").addEventListener("click", () => mutate(async () => {
   const response = await api("/api/decision", { branch, expected_head: idOf(workspace.head), problem });
   renderDecision(response.result);
   await refresh();
+}));
+
+const relationshipExamples = {
+  action: { operation: "node", node: { id: "launch", label: "Full launch", kind: "action", importance: 1 } },
+  goal: { operation: "node", node: { id: "customer-trust", label: "Protect customer trust", kind: "goal", importance: 20 } },
+  relation: { operation: "relation", relation: { id: "launch-trust", source: "launch", target: "customer-trust", kind: "effect", weight: 20, severe: true, actions: ["Full launch"] } },
+  assess: { operation: "assess", relation_id: "launch-trust", belief: { positive: 0.1, neutral: 0.1, negative: 0.8 }, source: "Illustrative review", content: "A launch before the reliability issue is fixed may undermine customer trust. Replace this with your evidence." },
+  unknown: { operation: "assess", relation_id: "launch-trust", belief: null, source: "Illustrative uncertainty review", content: "The prior assessment is now uncertain. This does not resolve the conflict." },
+  observe: { operation: "observe", relation_id: "launch-trust", action: "Reversible pilot", context: "Illustrative controlled pilot", before: "negative", after: "positive", source: "Illustrative pilot report", content: "Record an observed transition and its actual context. This sample establishes no causal conclusion." },
+  reassess: { operation: "assess", relation_id: "launch-trust", belief: { positive: 0.9, neutral: 0.1, negative: 0 }, source: "Illustrative follow-up review", content: "Replace with evidence supporting a nonadverse assessment; reassessment alone leaves the conflict open." },
+  resolve: { operation: "resolve", relation_id: "launch-trust", evidence: [
+    { source: "Illustrative operator review", content: "Replace with evidence that the original concern is resolved.", stance: "support", reliability: 0.9 },
+    { source: "Illustrative outcome report", content: "Replace with a distinct reviewed source supporting resolution.", stance: "support", reliability: 0.9 }
+  ] }
+};
+document.querySelectorAll("[data-relationship-example]").forEach((button) => {
+  button.addEventListener("click", () => {
+    $("relationship-input").value = JSON.stringify(relationshipExamples[button.dataset.relationshipExample], null, 2);
+    $("relationship-status").textContent = "Example loaded. Review and replace illustrative evidence before saving.";
+  });
+});
+$("relationship-refresh").addEventListener("click", () => mutate(async () => {
+  await refresh();
+  $("relationship-status").textContent = "Relationship state refreshed for the current branch.";
+}));
+$("relationship-save").addEventListener("click", () => mutate(async () => {
+  let operation;
+  try { operation = JSON.parse($("relationship-input").value); } catch { throw new Error("The relationship operation needs valid JSON."); }
+  if (!operation || Array.isArray(operation) || typeof operation !== "object") throw new Error("A relationship operation must be a JSON object.");
+  if (Object.hasOwn(operation, "branch") || Object.hasOwn(operation, "expected_head")) throw new Error("The operation cannot select a branch or override the expected head.");
+  const response = await api("/api/relationships", { ...operation, branch, expected_head: idOf(workspace.head) });
+  resetVerdict();
+  await refresh();
+  $("relationship-status").textContent = `Operation saved at ${idOf(response.head).slice(0, 8)}. Review current conflicts before acting.`;
+  notify("Relationship state saved in a new revision.");
 }));
 
 $("add-evidence").addEventListener("click", () => addEvidence());

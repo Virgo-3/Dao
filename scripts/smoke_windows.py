@@ -11,6 +11,7 @@ import socket
 import subprocess
 import tempfile
 import time
+import tomllib
 from urllib.request import urlopen
 
 
@@ -31,8 +32,24 @@ def main():
         database = isolated / "userdata" / "Dao" / "state.sqlite3"
         version = subprocess.run([str(copied), "--version"], capture_output=True, text=True,
                                  encoding="utf-8", errors="replace", env=environment, cwd=isolated, timeout=60)
-        assert version.returncode == 0 and "Dao 0.2.0" in version.stdout, version.stderr
+        with (Path(__file__).resolve().parents[1] / "pyproject.toml").open("rb") as manifest:
+            expected_version = tomllib.load(manifest)["project"]["version"]
+        assert version.returncode == 0 and f"Dao {expected_version}" in version.stdout, version.stderr
+        operations = [
+            {"operation": "node", "node": {"id": "goal", "label": "Recoverable plan", "kind": "goal", "importance": 1}},
+            {"operation": "node", "node": {"id": "person", "label": "Affected person", "kind": "person", "importance": 1}},
+            {"operation": "relation", "relation": {"id": "effect", "source": "goal", "target": "person", "kind": "effect",
+                                                   "weight": 2, "severe": False, "actions": []}},
+            {"operation": "assess", "relation_id": "effect", "belief": {"positive": 0, "neutral": 0, "negative": 1},
+             "source": "Smoke fixture", "content": "Illustrative adverse effect"},
+        ]
+        relationship_commands = ""
+        for index, operation in enumerate(operations):
+            operation_path = isolated / f"relationship-{index}.json"
+            operation_path.write_text(json.dumps(operation), encoding="utf-8")
+            relationship_commands += f'/relate "{operation_path}"\n'
         commands = ("/remember proof=packaged\n/branch standalone\n/remember proof=branch\n"
+                    + relationship_commands + "/relationships\n/conflicts\n"
                     "Should we run a reversible pilot?\n/verify\n/usage\n/quit\n")
         terminal = subprocess.run([str(copied)], input=commands, capture_output=True,
                                   text=True, encoding="utf-8", errors="replace", env=environment,
@@ -66,6 +83,9 @@ def main():
                 branch_state = json.load(response)
             assert branch_state["head"]["state"]["memory"] == {"proof": "branch"}
             assert branch_state["usage"]["total_tokens"] > 0
+            assert branch_state["relationships"]["negative_weight"] == 2
+            assert len(branch_state["relationships"]["unresolved_conflicts"]) == 1
+            assert main_state["relationships"]["relation_count"] == 0
             for route, marker in (("/", b"Dao"), ("/app.js", b"fetch"), ("/style.css", b"background")):
                 with urlopen(url + route, timeout=5) as response:
                     assert marker in response.read(), f"Bundled asset missing: {route}"
@@ -84,7 +104,7 @@ def main():
                         server.kill()
                     server.wait(timeout=10)
             assert server.returncode == 0, f"Packaged web server shutdown failed: {server.returncode}"
-        print("PASS: standalone terminal streaming, branches, persistence, usage, web assets, integrity, shutdown")
+        print("PASS: standalone terminal streaming, relationships, conflicts, branches, persistence, usage, web assets, integrity, shutdown")
     with executable.open("rb") as source:
         print("SHA256:", hashlib.file_digest(source, "sha256").hexdigest())
     return 0

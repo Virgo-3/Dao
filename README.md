@@ -1,7 +1,5 @@
 # Dao
 
-**A flowing conversation, with room to change your mind.**
-
 Dao is a local conversational agent whose working state has immutable revisions and branchable histories. Its runtime records decisions, evidence adjudications, tool results, and usage independently of model prose. A decision can favor acting, abstaining, or waiting for information while preserving the option to choose differently.
 
 ![Dao workspace](docs/workspace.jpg)

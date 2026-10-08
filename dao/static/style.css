@@ -88,7 +88,7 @@ summary::marker { color: var(--accent); }
 .composer { box-shadow: 0 5px 18px #2339560d; flex-shrink: 0; width: 100%; max-width: 760px; margin: 0 auto; background: #ffffff; border: 1px solid #9dacc0; border-radius: 6px; overflow: hidden; }
 .composer:focus-within { border-color: var(--accent); }
 .composer textarea { min-height: 74px; max-height: 200px; padding: 15px 17px 8px; background: transparent; border: 0; outline: none; resize: none; font-size: 15px; }
-.composer-bottom { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px 12px; }
+.composer-bottom { display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 8px 12px 12px; }
 .composer-bottom > span { font-size: 12px; color: var(--muted); }
 .composer-spark { color: var(--accent); margin-right: 6px; }
 .send-button { display: flex; align-items: center; justify-content: center; gap: 16px; min-height: 42px; min-width: 88px; padding: 9px 14px; border-radius: 4px; background: var(--accent); color: var(--ink); font-size: 13px; font-weight: 600; }
@@ -104,7 +104,7 @@ summary::marker { color: var(--accent); }
 .message.user .message-content { color: #485971; }
 .message-status { display: inline-block; margin-top: 9px; padding: 2px 8px; border: 1px solid var(--line); border-radius: 4px; font-size: 11px; color: var(--muted); }
 .streaming .message-content::after { content: ''; display: inline-block; width: 5px; height: 14px; background: var(--accent); margin-left: 4px; animation: blink 1s infinite; }
-.inspector { display: flex; flex-direction: column; min-height: 0; min-width: 0; border-left: 1px solid var(--line); background: rgba(235, 240, 246, .94); }
+.inspector { display: flex; flex-direction: column; min-height: 0; min-width: 0; padding-top: 16px; border-left: 1px solid var(--line); background: rgba(235, 240, 246, .94); }
 .inspector-heading { padding: 25px 22px 14px; }
 .tabs { display: grid; grid-template-columns: auto auto auto auto; gap: 10px; margin: 0 22px; border-bottom: 1px solid var(--line); }
 .tabs button { position: relative; min-height: 44px; padding: 8px 0 12px; background: none; color: var(--muted); font-size: 12px; }
@@ -141,7 +141,7 @@ summary::marker { color: var(--accent); }
 .evidence-heading { margin-top: 22px; }
 .evidence-list { display: flex; flex-direction: column; gap: 14px; }
 .evidence-card { padding: 14px; border: 1px solid var(--line); border-radius: 4px; background: #f9fbfd; }
-.evidence-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 9px; font-size: 12px; color: var(--muted); }
+.evidence-card-header { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 9px; font-size: 12px; color: var(--muted); }
 .evidence-card input { width: 100%; margin-bottom: 9px; font-size: 13px; }
 .evidence-card textarea { min-height: 90px; font-size: 13px; }
 .evidence-options { display: flex; gap: 12px; margin-top: 9px; }

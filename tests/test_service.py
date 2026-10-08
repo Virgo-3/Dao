@@ -149,8 +149,26 @@ class ServiceTests(unittest.TestCase):
         state["messages"] = [{"role": "assistant", "content": "Partial", "status": "failed"}]
         self.assertEqual(build_input(state)[1], [])
         state["messages"] = [{"role": "user", "content": "x" * 70000}]
-        with self.assertRaises(ValueError):
+        self.assertEqual(build_input(state)[1], state["messages"])
+        state["messages"][0]["content"] = "x" * 1048576
+        with self.assertRaisesRegex(ValueError, "Context exceeds 1 MiB"):
             build_input(state)
+
+    def test_context_byte_boundary_includes_instructions_and_saved_memory(self):
+        for prefix in ("", "道" * 1000):
+            with self.subTest(multibyte=bool(prefix)):
+                state = deepcopy(self.store.head()["state"])
+                state["memory"] = {"note": "道" * 100}
+                state["messages"] = [{"role": "user", "content": prefix}]
+                instructions, messages = build_input(state)
+                size = len(json.dumps(messages, ensure_ascii=False).encode("utf-8")) + len(instructions.encode("utf-8"))
+                state["messages"][0]["content"] += "x" * (1048576 - size)
+                instructions, messages = build_input(state)
+                self.assertEqual(len(json.dumps(messages, ensure_ascii=False).encode("utf-8"))
+                                 + len(instructions.encode("utf-8")), 1048576)
+                state["messages"][0]["content"] += "x"
+                with self.assertRaisesRegex(ValueError, "Context exceeds 1 MiB"):
+                    build_input(state)
 
     def test_prices_and_credentials_remain_server_side(self):
         config = Config(api_key="private-key", input_price=Decimal("0.5"), output_price=Decimal("2"), pricing_configured=True)

@@ -86,6 +86,7 @@ Use a Responses API model available to your account. Live inference sends the cu
 | Audit | Inspectable evidence policy; the latest matching verdict binds exact artifact content and relationship state |
 | Decisions | Bayes posterior optimization, mean-variance preferences, rollback and irreversibility costs, explicit wait/abstain options |
 | Usage | Atomic lifetime token reservations across branches; final usage is idempotent; unknown failures retain conservative estimated charges |
+| Conversation context | Up to 1 MiB (1,048,576 bytes) of serialized UTF-8 messages, saved context, and system instructions combined |
 | Model tools | Up to three model requests per turn, each reserved and accounted; one read-only decision tool |
 | Browser access | Loopback-only server, Host/Origin checks, mutation CSRF token, restrictive CSP, no remote assets |
 

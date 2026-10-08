@@ -8,16 +8,19 @@ from unittest.mock import patch
 
 from dao.config import Config
 from dao.decision import demo_payload
-from dao.server import make_server
+from dao.server import STATIC, make_server
 from dao.service import Dao
 from dao.store import Store
 
 
 class HttpTests(unittest.TestCase):
+    app_type = Dao
+    static_dir = STATIC
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.store = Store(Path(self.temp.name) / "test.db")
-        self.server = make_server(Dao(self.store, Config()), 0)
+        self.server = make_server(self.app_type(self.store, Config()), 0, static_dir=self.static_dir)
         self.thread = threading.Thread(target=self.server.serve_forever)
         self.thread.start()
         self.port = self.server.server_port

@@ -4,7 +4,7 @@ Dao makes its decision calculations inspectable. It compares immediate actions,
 abstaining, and waiting for one explicitly modeled observation. The engine is
 deterministic and uses caller-supplied scenarios, probabilities, payoffs, and
 signal likelihoods. A result evaluates those assumptions; it does not establish
-that the assumptions are true. The story example uses illustrative numbers and does not score literary quality.
+that the assumptions are true.
 
 ## Input and units
 
@@ -13,22 +13,22 @@ that the assumptions are true. The story example uses illustrative numbers and d
 ```json
 {
   "scenarios": [
-    {"name": "The reveal feels earned", "probability": 0.5},
-    {"name": "The reveal needs setup", "probability": 0.5}
+    {"name": "Demand holds", "probability": 0.5},
+    {"name": "Demand fades", "probability": 0.5}
   ],
   "actions": [
     {
-      "name": "Commit to the ending", "payoffs": [120, -100], "cost": 5,
+      "name": "Full launch", "payoffs": [120, -100], "cost": 5,
       "reversibility": 0.1, "rollback_cost": 10
     },
     {
-      "name": "Try an alternate scene", "payoffs": [35, -10], "cost": 5,
+      "name": "Reversible pilot", "payoffs": [35, -10], "cost": 5,
       "reversibility": 0.95, "rollback_cost": 2
     }
   ],
   "signals": [
-    {"name": "Reader finds the reveal earned", "likelihoods": [0.9, 0.1]},
-    {"name": "Reader asks for more setup", "likelihoods": [0.1, 0.9]}
+    {"name": "Strong study", "likelihoods": [0.9, 0.1]},
+    {"name": "Weak study", "likelihoods": [0.1, 0.9]}
   ],
   "waiting_cost": 3,
   "discount": 0.95,
@@ -148,15 +148,15 @@ contingent policy; confidence margin applies to the initial recommendation.
 ## Demo calculation and independent check
 
 The example above is returned by `demo_payload()`. Its net outcome vectors are
-`[107.8, -122.2]` for the ending and `[29.6, -17.4]` for the alternate scene.
+`[107.8, -122.2]` for launch and `[29.6, -17.4]` for the pilot.
 
-| Probability distribution | Commit to the ending utility | Alternate scene utility | Best option |
+| Probability distribution | Full launch utility | Pilot utility | Best option |
 | --- | ---: | ---: | --- |
-| Prior `[0.5, 0.5]` | -20.425 | 5.54775 | Alternate scene |
-| Reader finds the reveal earned posterior `[0.9, 0.1]` | 80.039 | 24.70119 | Ending |
-| Reader asks for more setup posterior `[0.1, 0.9]` | -103.961 | -12.89881 | Abstain |
+| Prior `[0.5, 0.5]` | -20.425 | 5.54775 | Pilot |
+| Strong study posterior `[0.9, 0.1]` | 80.039 | 24.70119 | Launch |
+| Weak study posterior `[0.1, 0.9]` | -103.961 | -12.89881 | Abstain |
 
-Each reader response occurs with probability `0.5`, giving:
+Each study result occurs with probability `0.5`, giving:
 
 ```text
 after_signal = 0.5*80.039 + 0.5*0 = 40.0195

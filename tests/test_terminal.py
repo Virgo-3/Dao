@@ -12,6 +12,8 @@ from dao.provider import ProviderError
 from dao.service import Dao, artifact_claim
 from dao.store import Store
 from dao.terminal import Terminal
+from dao_narrative.app import NarrativeDao
+from dao_narrative.terminal import NarrativeTerminal
 
 
 class TerminalTests(unittest.TestCase):
@@ -28,7 +30,8 @@ class TerminalTests(unittest.TestCase):
     def run_terminal(self, commands, *, branch="main", input_stream=None, output_stream=None):
         source = input_stream if input_stream is not None else io.StringIO(commands)
         output = output_stream if output_stream is not None else io.StringIO()
-        terminal = Terminal(self.app, branch, source, output)
+        view = NarrativeTerminal if isinstance(self.app, NarrativeDao) else Terminal
+        terminal = view(self.app, branch, source, output)
         with patch("dao.provider.time.sleep"):
             code = terminal.run()
         return code, output.getvalue() if hasattr(output, "getvalue") else "", terminal
@@ -72,6 +75,7 @@ class TerminalTests(unittest.TestCase):
         self.assertIn("next = Study", output)
 
     def test_story_commands_share_drafts_versions_and_accounting(self):
+        self.app = NarrativeDao(self.store, Config())
         initial = self.store.head()["id"]
         problem = self.file("story choice.json", demo_payload())
         connection = self.file("story connection.json", {
@@ -83,7 +87,7 @@ class TerminalTests(unittest.TestCase):
         code, output, _ = self.run_terminal(commands)
         self.assertEqual(code, 0)
         self.assertNotIn("Error:", output)
-        self.assertIn("Dao writing room | draft main", output)
+        self.assertIn("Dao Narrative writing room | draft main", output)
         self.assertIn("motive = Expose Ivo", output)
         self.assertIn("Try an alternate scene", output)
         self.assertIn("Story started", output)
@@ -96,6 +100,7 @@ class TerminalTests(unittest.TestCase):
         self.assertTrue(self.store.verify()["ok"])
 
     def test_story_review_and_document_aliases_preserve_the_save_gate(self):
+        self.app = NarrativeDao(self.store, Config())
         audit = self.audit_payload()
         verdict = self.app.adjudicate_problem(self.store.head()["state"], audit)
         source = self.file("review.json", audit)
@@ -120,7 +125,7 @@ class TerminalTests(unittest.TestCase):
         code, output, _ = self.run_terminal(f"/artifact {artifact_file}\n/audit {audit_file}\n/artifact {artifact_file}\n"
                                             f"/audit {contested_file}\n/artifact {artifact_file}\n/quit\n")
         self.assertEqual(code, 0)
-        self.assertEqual(output.count("Document saved"), 1)
+        self.assertEqual(output.count("Artifact saved"), 1)
         self.assertEqual(output.count("Artifact needs an allowed adjudication"), 2)
         self.assertEqual(self.store.head()["state"]["artifacts"]["plan"]["content"], "Pilot first")
         self.assertEqual(self.store.head()["state"]["audits"][-1]["verdict"], "contested")
@@ -203,7 +208,7 @@ class TerminalTests(unittest.TestCase):
         code, output, _ = self.run_terminal(f"/relate {branch_override}\n/relate {head_override}\n/conflicts\n/quit\n")
         self.assertEqual(code, 0)
         self.assertEqual(output.count("cannot select a branch"), 2)
-        self.assertIn("No unresolved connection conflicts", output)
+        self.assertIn("No unresolved relationship conflicts", output)
         self.assertEqual(self.store.head()["id"], initial)
 
     def test_relationship_summary_uses_viewed_checkpoint_until_refreshed(self):
@@ -333,7 +338,7 @@ class TerminalTests(unittest.TestCase):
         self.assertIn("Error: Unknown branch: absent\n", output)
         self.assertNotIn("'Unknown branch", output)
         self.assertEqual(terminal.branch, "main")
-        self.assertIn("No reachable saved version", output)
+        self.assertIn("No reachable saved revision", output)
         startup, _, _ = self.run_terminal("", branch="absent")
         self.assertEqual(startup, 1)
 

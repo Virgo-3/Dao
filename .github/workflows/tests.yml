@@ -19,3 +19,4 @@ jobs:
         with:
           node-version: '24'
       - run: node --check dao/static/app.js
+      - run: node --check dao_narrative/static/app.js

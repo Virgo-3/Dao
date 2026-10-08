@@ -9,7 +9,6 @@ import secrets
 import socket
 from urllib.parse import parse_qs, urlsplit
 
-from .decision import demo_payload
 from .store import BudgetError, ConflictError
 
 
@@ -23,8 +22,9 @@ class Handler(BaseHTTPRequestHandler):
         super().setup()
         self.connection.settimeout(15)
 
-    def __init__(self, *args, app, csrf, **kwargs):
+    def __init__(self, *args, app, csrf, static_dir=STATIC, **kwargs):
         self.app, self.csrf = app, csrf
+        self.static_dir = Path(static_dir)
         super().__init__(*args, **kwargs)
 
     def log_message(self, fmt, *args):
@@ -67,14 +67,16 @@ class Handler(BaseHTTPRequestHandler):
             if parsed.path in {"/api/bootstrap", "/api/state"}:
                 self.respond(200, {**self.app.snapshot(branch), "csrf": self.csrf})
             elif parsed.path == "/api/decision-example":
-                self.respond(200, demo_payload())
+                self.respond(200, self.app.example_problem())
             elif parsed.path == "/api/verify":
                 self.respond(200, self.app.store.verify())
             elif parsed.path == "/api/export":
                 self.respond(200, {"schema": "dao-export-v1", **self.app.snapshot(branch)})
             elif parsed.path in {"/", "/index.html", "/app.js", "/style.css", "/static/app.js", "/static/style.css", "/static/dao.svg", "/static/dao.ico"}:
                 filename = "index.html" if parsed.path == "/" else parsed.path.rsplit("/", 1)[-1]
-                body = (STATIC / filename).read_bytes()
+                # Each app owns its HTML and script; style and branding are shared.
+                root = self.static_dir if filename in {"index.html", "app.js"} else STATIC
+                body = (root / filename).read_bytes()
                 extension = filename.rsplit(".", 1)[-1]
                 mime = {"html": "text/html", "js": "text/javascript", "css": "text/css", "svg": "image/svg+xml", "ico": "image/vnd.microsoft.icon"}[extension]
                 if extension != "ico":
@@ -144,7 +146,7 @@ class LocalServer(ThreadingHTTPServer):
         super().server_bind()
 
 
-def make_server(app, port=8765):
-    server = LocalServer(("127.0.0.1", port), partial(Handler, app=app, csrf=secrets.token_urlsafe(32)))
+def make_server(app, port=8765, *, static_dir=STATIC):
+    server = LocalServer(("127.0.0.1", port), partial(Handler, app=app, csrf=secrets.token_urlsafe(32), static_dir=static_dir))
     server.daemon_threads = False
     return server

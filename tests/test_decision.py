@@ -106,7 +106,7 @@ class DecisionTests(unittest.TestCase):
         payload["waiting_cost"] = 1000
         result = evaluate(payload)
         self.assertEqual(result["recommendation"], "act")
-        self.assertEqual(result["selected_action"], "Try an alternate scene")
+        self.assertEqual(result["selected_action"], "Reversible pilot")
 
     def test_impossible_signal_is_reported_without_division(self):
         payload = simple_payload()

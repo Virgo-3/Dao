@@ -1,8 +1,17 @@
 # Dao
 
-Dao is a local writing room for developing scenes, characters, and alternate story directions. Conversations and story notes stay with each draft, and saved versions let you return to an earlier idea. Explore possibilities, connect story elements, review supplied sources, and save manuscripts with an inspectable history.
+Dao is a local conversational agent with versioned, branchable state. It saves messages, memory, decisions, audits, relationships, artifacts, and usage so you can explore alternatives and revisit earlier checkpoints. Its decision engine compares **act**, **wait**, and **abstain**, accounting for uncertainty, reversibility, and the value of additional information.
 
-Dao starts in an **offline demo** with deterministic replies and no model calls. Live AI is optional. The browser and terminal use the same writing interface and saved data. A draft is a branch, a saved version is a revision, story notes are memory, and saved documents are artifacts; existing databases, APIs, and command names remain compatible.
+Dao starts in an **offline demo** with deterministic replies and no model calls. Live AI is optional. The terminal and browser workspace both support saved state, branches, decisions, and evidence review.
+
+This repository builds two separate applications. **Dao** is the general-purpose app and remains the default. **Dao Narrative** preserves the writing interface, story examples, and terminal language. Each has its own launcher, Windows executable, default database, and browser port; both share the same state and decision engine.
+
+| Application | Browser launch | Terminal launch | Windows executable |
+| --- | --- | --- | --- |
+| Dao | `python -m dao` · port 8765 | `python -m dao --terminal` | `Dao.exe` |
+| Dao Narrative | `python -m dao_narrative` · port 8766 | `python -m dao_narrative --terminal` | `DaoNarrative.exe` |
+
+See the [Dao Narrative guide](docs/narrative.md) for its writing interface and commands.
 
 ![Dao browser workspace](docs/workspace.jpg)
 
@@ -10,13 +19,13 @@ Dao starts in an **offline demo** with deterministic replies and no model calls.
 
 | Capability | Purpose |
 | --- | --- |
-| Drafts and versions | Save snapshots and explore another story direction from a selected version |
-| Restore | Return to an earlier version while retaining history and lifetime usage |
-| Explore | Compare choices using explicit scenarios, probabilities, costs, and reversibility; the numbers do not score literary quality |
-| Connections | Link story elements, separate assessments from observations, and track unresolved conflicts |
-| Review | Review a claim against supplied notes and excerpts under a fixed evidence policy; the review does not decide canon |
-| Manuscripts and notes | Save named content in the database when its current review and connection state permit it |
-| Activity | Inspect tokens and costs across drafts, restores, and failed calls |
+| Revisions and branches | Save immutable snapshots and explore alternatives from a selected checkpoint |
+| Restore | Create a new revision from an earlier checkpoint while retaining history and lifetime usage |
+| Decision engine | Compare actions using explicit scenarios, probabilities, payoffs, costs, reversibility, and possible observations |
+| Relationship graph | Separate assessed beliefs from reported observations and track persistent conflicts |
+| Audit as adjudication | Review submitted evidence under an explicit policy and record a verdict |
+| Artifacts | Save named content in the database when the current audit and relationship state permit it |
+| Usage accounting | Reserve tokens before requests and account for usage across branches, restores, and failed calls |
 
 The option value of waiting comes from the supplied observation model: Dao evaluates how new information could change the best available action, then accounts for waiting, observation, and delay costs. Recorded reconsideration conditions do not schedule future work.
 
@@ -36,11 +45,11 @@ Open **http://127.0.0.1:8765**. To start the terminal instead:
 python -m dao --terminal
 ```
 
-State is saved in `.dao/state.sqlite3` under the working directory. Use `--db PATH` to choose another database, `--port 9000` to change the browser port, or `--branch NAME` to select an existing terminal branch. Both interfaces share state when pointed at the same database. Optional `pip install .` installs the `dao` and `dao-terminal` commands.
+Dao saves source-launch state in `.dao/state.sqlite3`; Dao Narrative uses `.dao-narrative/state.sqlite3`. Use `--db PATH` to choose another database, `--port 9000` to change the browser port, or `--branch NAME` to select an existing terminal branch. Each app's browser and terminal share its database. Optional `pip install .` installs `dao`, `dao-terminal`, `dao-narrative`, and `dao-narrative-terminal`.
 
 ## Windows executable
 
-Download the Windows x64 ZIP from [Releases](https://github.com/Virgo-3/Dao/releases/latest), extract it, and open PowerShell in that folder:
+Get the current Windows x64 packages from the [Windows workflow](https://github.com/Virgo-3/Dao/actions/workflows/windows-build.yml). It builds separate ZIPs for Dao and Dao Narrative. Tagged builds are published under [Releases](https://github.com/Virgo-3/Dao/releases); releases before 0.4.0 contain only the earlier Dao app. Extract the desired ZIP and open PowerShell in that folder:
 
 ```powershell
 .\Dao.exe
@@ -52,25 +61,27 @@ The executable starts the terminal and includes Python. To open the browser work
 .\Dao.exe --web --open-browser
 ```
 
-The executable saves state in `%LOCALAPPDATA%\Dao\state.sqlite3` by default. It is unsigned; the release includes `SHA256SUMS` for checksum verification. See the [Windows guide](docs/windows.md) for download, verification, and build instructions. The [Windows workflow](https://github.com/Virgo-3/Dao/actions/workflows/windows-build.yml) provides builds from the latest source.
+Dao saves executable state in `%LOCALAPPDATA%\Dao\state.sqlite3`; Dao Narrative uses `%LOCALAPPDATA%\DaoNarrative\state.sqlite3`. Both executables are unsigned and each ZIP contains `SHA256SUMS`. See the [Windows guide](docs/windows.md) for launch, verification, and build instructions.
 
-## Try an alternate draft
+Existing databases remain in place, including any writing work saved by the earlier Dao interface. To open one in either app, pass its path with `--db PATH`. Launching the other app does not copy or rewrite it.
+
+## Try a branch
 
 In the terminal, type a message to converse, then try:
 
 ```text
-/remember protagonist_motive=Protect Ivo
-/explore
-/draft alternate-ending
-/versions
+/remember approach=Prefer reversible experiments
+/decide
+/branch experiment
+/history
 /switch main
-/activity
+/usage
 /verify
 ```
 
-`/draft alternate-ending` creates another draft from the viewed version. Subsequent changes stay in that draft. `/restore ID_PREFIX` restores a reachable earlier version as a new version. `/help` lists commands; `/quit` exits. Earlier command names remain aliases. See the [terminal guide](docs/terminal.md) for comparisons, connections, reviews, and document JSON imports.
+`/branch experiment` creates a branch from the viewed checkpoint. Subsequent changes stay on that branch. `/restore ID_PREFIX` restores a reachable earlier checkpoint as a new revision. `/help` lists commands; `/quit` exits. See the [terminal guide](docs/terminal.md) for decision, relationship, audit, and artifact JSON imports.
 
-In the browser, open **Tools** for **Explore**, **Connections**, **Review**, and **Activity**. Compare story directions, inspect connections and supplied sources, or save story notes. On smaller screens, **Back to writing** (shown as **← Write** on phones) returns to the conversation. Label established details, proposed ideas, and open questions in your notes; Dao does not automatically assign canon status.
+In the browser, open **Tools** for **Decision**, **Relationships**, **Audit**, and **Usage**. Review a decision summary, expand its model to edit the JSON, or inspect beliefs, evidence, usage, memory, and artifacts. On smaller screens, **Back to conversation** (shown as **← Chat** on phones) returns to the conversation.
 
 ## Enable live AI
 
@@ -106,6 +117,7 @@ Dao is a single-user application bound to `127.0.0.1`. Artifacts are content sav
 
 - [Project guide](docs/overview.md)
 - [Terminal commands](docs/terminal.md) and [Windows instructions](docs/windows.md)
+- [Dao Narrative](docs/narrative.md)
 - [Relationships and conflict resolution](docs/relationships.md)
 - [Decision model](docs/decision-model.md) and [mathematical checks](docs/mathematical-checks.md)
 - [Architecture](docs/architecture.md) and [security boundaries](SECURITY.md)
@@ -115,8 +127,9 @@ Run the Python tests and browser JavaScript syntax check:
 ```sh
 python -m unittest discover -s tests -v
 node --check dao/static/app.js
+node --check dao_narrative/static/app.js
 ```
 
-Node is only needed for the syntax check. GitHub Actions runs tests on Windows and Linux, and a separate workflow builds and smoke-tests the Windows executable. Provider tests use synthetic responses; live inference and provider billing require separate verification.
+Node is only needed for the syntax checks. GitHub Actions runs tests on Windows and Linux, and a separate workflow builds and smoke-tests both Windows executables. Provider tests use synthetic responses; live inference and provider billing require separate verification.
 
 Dao is available under the [MIT license](LICENSE).

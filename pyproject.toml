@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dao-agent"
-version = "0.3.0"
+version = "0.4.0"
 description = "A local conversational agent with versioned state, evidence review, and decisions under uncertainty"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -14,9 +14,12 @@ dependencies = []
 [project.scripts]
 dao = "dao.__main__:main"
 dao-terminal = "dao.__main__:terminal_main"
+dao-narrative = "dao_narrative.__main__:main"
+dao-narrative-terminal = "dao_narrative.__main__:terminal_main"
 
 [tool.setuptools.packages.find]
 include = ["dao*"]
 
 [tool.setuptools.package-data]
 dao = ["static/*.html", "static/*.css", "static/*.js", "static/*.svg", "static/*.ico"]
+dao_narrative = ["static/*.html", "static/*.js"]

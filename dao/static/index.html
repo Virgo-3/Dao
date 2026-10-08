@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#e8edf3">
-  <title>Dao · Writing room</title>
+  <title>Dao · Workspace</title>
   <link rel="stylesheet" href="/static/style.css">
   <link rel="icon" href="/static/dao.svg" type="image/svg+xml">
   <link rel="alternate icon" href="/static/dao.ico" type="image/vnd.microsoft.icon">
@@ -25,62 +25,62 @@
       <a class="brand" href="/" aria-label="Dao home"><img class="dao-mark" src="/static/dao.svg" alt="" aria-hidden="true"><span>Dao</span></a>
       <div class="header-actions">
         <span id="provider-badge" class="badge"><span class="status-dot"></span>Connecting</span>
-        <button id="verify-button" class="quiet-button" title="Check saved versions for inconsistencies" aria-label="Verify versions">Verify</button>
-        <button id="export-button" class="quiet-button" aria-label="Export story" disabled>Export</button>
+        <button id="verify-button" class="quiet-button" title="Check saved revisions for inconsistencies" aria-label="Verify revisions">Verify</button>
+        <button id="export-button" class="quiet-button" aria-label="Export workspace" disabled>Export</button>
         <button id="tools-toggle" class="secondary-button tools-toggle" aria-controls="workspace-tools" aria-expanded="true">Hide tools</button>
       </div>
     </header>
     <div id="global-alert" class="global-alert" role="alert" hidden><span id="alert-message"></span><button id="alert-close" class="icon-button" aria-label="Dismiss error">×</button></div>
 
-    <aside class="sidebar" aria-label="Story drafts">
-      <label class="field-label" for="branch-select">Current draft</label>
-      <div class="select-wrap"><select id="branch-select" aria-label="Current draft" disabled><option>Loading…</option></select><span aria-hidden="true">⌄</span></div>
-      <div class="branch-creator"><input id="branch-name" maxlength="64" placeholder="Name your draft" aria-label="New draft name" data-mutation><button id="create-branch" class="secondary-button" title="Create another draft from this saved version" data-mutation>New draft</button></div>
+    <aside class="sidebar" aria-label="Branches">
+      <label class="field-label" for="branch-select">Current branch</label>
+      <div class="select-wrap"><select id="branch-select" aria-label="Current branch" disabled><option>Loading…</option></select><span aria-hidden="true">⌄</span></div>
+      <div class="branch-creator"><input id="branch-name" maxlength="64" placeholder="Name your branch" aria-label="New branch name" data-mutation><button id="create-branch" class="secondary-button" title="Create a branch from this revision" data-mutation>New branch</button></div>
 
       <details id="history-details" class="history-section" open>
-        <summary class="sidebar-section-title">Versions <span id="history-count" class="count">0</span></summary>
-        <ol id="history-list" class="history-list"><li class="muted loading-copy">Loading versions…</li></ol>
+        <summary class="sidebar-section-title">Revisions <span id="history-count" class="count">0</span></summary>
+        <ol id="history-list" class="history-list"><li class="muted loading-copy">Loading revisions…</li></ol>
       </details>
     </aside>
 
     <main class="conversation-panel">
-      <h1 class="sr-only">Writing room</h1>
-      <p id="provider-description" class="mode-note">Opening your writing room…</p>
-      <div id="messages" class="messages" aria-label="Writing conversation" aria-live="polite" aria-relevant="additions">
-        <section class="empty-state"><img class="empty-emblem" src="/static/dao.svg" alt="" aria-hidden="true"><h2>Where next?</h2><p>Bring a scene, character, or idea.</p></section>
+      <h1 class="sr-only">Workspace</h1>
+      <p id="provider-description" class="mode-note">Connecting…</p>
+      <div id="messages" class="messages" aria-label="Conversation" aria-live="polite" aria-relevant="additions">
+        <section class="empty-state"><img class="empty-emblem" src="/static/dao.svg" alt="" aria-hidden="true"><h2>Room to think.</h2><p>Ask a question or explore a decision.</p></section>
       </div>
-      <div id="starter-prompts" class="starter-prompts"><button class="prompt-chip" data-prompt="Help me develop a scene by exploring its character goals, conflict, and possible turns." data-mutation><span>◷</span> Explore a scene</button><button class="prompt-chip" data-prompt="Help me explore two alternate endings, keeping the characters consistent and unresolved questions visible." data-mutation><span>⑂</span> Try another ending</button></div>
-      <form id="chat-form" class="composer"><label class="sr-only" for="message-input">Your message</label><textarea id="message-input" rows="2" maxlength="8192" placeholder="What happens next?" data-mutation></textarea><div class="composer-bottom"><button id="send-button" class="send-button" type="submit" aria-label="Send message" data-mutation><span id="send-label">Send</span><span aria-hidden="true">↑</span></button></div></form>
-      <footer class="conversation-footer"><span id="revision-label">Your versions are saved</span><span>Enter to send · Shift + Enter for a new line</span></footer>
+      <div id="starter-prompts" class="starter-prompts"><button class="prompt-chip" data-prompt="Help me think through a decision and identify what remains uncertain." data-mutation><span>◷</span> Explore a decision</button><button class="prompt-chip" data-prompt="Help me design a reversible first step before committing to a plan." data-mutation><span>⑂</span> Find a first step</button></div>
+      <form id="chat-form" class="composer"><label class="sr-only" for="message-input">Your message</label><textarea id="message-input" rows="2" maxlength="8192" placeholder="What would you like to explore?" data-mutation></textarea><div class="composer-bottom"><button id="send-button" class="send-button" type="submit" aria-label="Send message" data-mutation><span id="send-label">Send</span><span aria-hidden="true">↑</span></button></div></form>
+      <footer class="conversation-footer"><span id="revision-label">Revision history is saved</span><span>Enter to send · Shift + Enter for a new line</span></footer>
     </main>
 
-    <aside id="workspace-tools" class="inspector" aria-label="Story development tools">
-      <div class="tabs" role="tablist" aria-label="Story tools"><button id="decision-tab" role="tab" aria-controls="decision-panel" aria-selected="true" tabindex="0" data-panel="decision-panel">Explore</button><button id="relationships-tab" role="tab" aria-controls="relationships-panel" aria-selected="false" tabindex="-1" data-panel="relationships-panel">Connections</button><button id="audit-tab" role="tab" aria-controls="audit-panel" aria-selected="false" tabindex="-1" data-panel="audit-panel">Review</button><button id="ledger-tab" role="tab" aria-controls="ledger-panel" aria-selected="false" tabindex="-1" data-panel="ledger-panel">Activity</button></div>
+    <aside id="workspace-tools" class="inspector" aria-label="Workspace tools">
+      <div class="tabs" role="tablist" aria-label="Workspace tools"><button id="decision-tab" role="tab" aria-controls="decision-panel" aria-selected="true" tabindex="0" data-panel="decision-panel">Decision</button><button id="relationships-tab" role="tab" aria-controls="relationships-panel" aria-selected="false" tabindex="-1" data-panel="relationships-panel">Relationships</button><button id="audit-tab" role="tab" aria-controls="audit-panel" aria-selected="false" tabindex="-1" data-panel="audit-panel">Audit</button><button id="ledger-tab" role="tab" aria-controls="ledger-panel" aria-selected="false" tabindex="-1" data-panel="ledger-panel">Usage</button></div>
       <section id="decision-panel" role="tabpanel" aria-labelledby="decision-tab" class="tool-panel">
-        <div class="tool-intro"><p>Compare directions using your own assumptions.</p></div>
-        <div id="decision-preview" class="model-preview" aria-live="polite"><p class="empty-copy">Loading an example story choice…</p></div>
+        <div class="tool-intro"><p>Compare actions using your own assumptions.</p></div>
+        <div id="decision-preview" class="model-preview" aria-live="polite"><p class="empty-copy">Loading a decision example…</p></div>
         <details id="decision-editor" class="editor-details">
-          <summary>Edit comparison model <span class="summary-note">JSON</span></summary>
-          <div class="section-label"><label for="decision-input">Possible outcomes</label><button id="decision-example" class="text-button" data-mutation>Reset to example</button></div>
-          <textarea id="decision-input" class="code-input" rows="13" spellcheck="false" aria-describedby="decision-help" data-mutation>{}</textarea><p id="decision-help" class="field-help">Set probabilities, payoffs, costs, and reversibility. Example values are illustrative, not literary scores.</p>
+          <summary>Edit decision model <span class="summary-note">JSON</span></summary>
+          <div class="section-label"><label for="decision-input">Scenarios and actions</label><button id="decision-example" class="text-button" data-mutation>Reset to example</button></div>
+          <textarea id="decision-input" class="code-input" rows="13" spellcheck="false" aria-describedby="decision-help" data-mutation>{}</textarea><p id="decision-help" class="field-help">Set probabilities, payoffs, costs, and reversibility. Example values are illustrative.</p>
         </details>
-        <button id="decision-run" class="primary-button full-width" data-mutation>Compare directions <span aria-hidden="true">→</span></button>
+        <button id="decision-run" class="primary-button full-width" data-mutation>Evaluate decision <span aria-hidden="true">→</span></button>
         <div id="decision-result" class="result-area" aria-live="polite"></div>
       </section>
       <section id="relationships-panel" role="tabpanel" aria-labelledby="relationships-tab" class="tool-panel" hidden>
-        <div class="tool-intro"><p>Link characters, goals, and choices.</p></div>
+        <div class="tool-intro"><p>Record beliefs and observations; inspect unresolved conflicts.</p></div>
         <div id="relationship-summary" class="relationship-summary" aria-live="polite"></div>
-        <p class="field-help">Model diagnostics, not a continuity score.</p>
+        <p class="field-help">Read coherence and coverage together.</p>
         <div class="section-label"><span>Unresolved conflicts</span><span id="conflict-count" class="count">0</span></div>
         <div id="relationship-conflicts" class="event-list"></div>
-        <details class="relationship-details"><summary>Inspect connection records and estimates</summary><div id="relationship-details"></div></details>
-        <button id="relationship-refresh" class="text-button" data-mutation>Refresh connections</button>
+        <details class="relationship-details"><summary>Inspect relationships and estimates</summary><div id="relationship-details"></div></details>
+        <button id="relationship-refresh" class="text-button" data-mutation>Refresh relationships</button>
         <details class="editor-details">
-        <summary>Add or update a connection <span class="summary-note">JSON</span></summary>
-        <div class="section-label"><label for="relationship-input">Connection operation</label></div>
-        <p id="relationship-help" class="field-help">Save one operation at a time. Definitions stay fixed; a new assessment does not resolve an existing conflict. Replace example sources with your notes.</p>
+        <summary>Add or update a relationship <span class="summary-note">JSON</span></summary>
+        <div class="section-label"><label for="relationship-input">Relationship operation</label></div>
+        <p id="relationship-help" class="field-help">Save one operation at a time. Definitions stay fixed; a new assessment does not resolve an existing conflict. Replace example sources with your evidence.</p>
         <div class="relationship-examples" aria-label="Relationship operation examples">
-          <button class="text-button" data-relationship-example="action" data-mutation>1. Choice</button><button class="text-button" data-relationship-example="goal" data-mutation>2. Goal</button><button class="text-button" data-relationship-example="relation" data-mutation>3. Relation</button><button class="text-button" data-relationship-example="assess" data-mutation>4. Assess</button><button class="text-button" data-relationship-example="unknown" data-mutation>Set unknown</button><button class="text-button" data-relationship-example="observe" data-mutation>Record observation</button><button class="text-button" data-relationship-example="reassess" data-mutation>Reassess</button><button class="text-button" data-relationship-example="resolve" data-mutation>Resolve conflict</button>
+          <button class="text-button" data-relationship-example="action" data-mutation>1. Action</button><button class="text-button" data-relationship-example="goal" data-mutation>2. Goal</button><button class="text-button" data-relationship-example="relation" data-mutation>3. Relation</button><button class="text-button" data-relationship-example="assess" data-mutation>4. Assess</button><button class="text-button" data-relationship-example="unknown" data-mutation>Set unknown</button><button class="text-button" data-relationship-example="observe" data-mutation>Record observation</button><button class="text-button" data-relationship-example="reassess" data-mutation>Reassess</button><button class="text-button" data-relationship-example="resolve" data-mutation>Resolve conflict</button>
         </div>
         <textarea id="relationship-input" class="code-input" rows="13" spellcheck="false" aria-describedby="relationship-help" data-mutation>{}</textarea>
         <button id="relationship-save" class="primary-button full-width" data-mutation>Save operation <span aria-hidden="true">→</span></button>
@@ -88,18 +88,18 @@
         <p id="relationship-status" class="field-help" role="status"></p>
       </section>
       <section id="audit-panel" role="tabpanel" aria-labelledby="audit-tab" class="tool-panel" hidden>
-        <div class="tool-intro"><p>Check a claim against your sources. You decide canon.</p></div>
-        <label class="field-label" for="audit-claim">Story claim to review</label><input id="audit-claim" class="wide-input" value="Mara knows the letter was forged before the final scene." maxlength="4000" data-mutation>
-        <div class="section-label evidence-heading"><span>Notes and excerpts</span><button id="add-evidence" class="text-button" data-mutation>Add source</button></div><p class="field-help">Replace example sources. Include contradictions.</p>
+        <div class="tool-intro"><p>Review supplied evidence and record a verdict.</p></div>
+        <label class="field-label" for="audit-claim">Claim to review</label><input id="audit-claim" class="wide-input" value="This plan is ready for internal review." maxlength="4000" data-mutation>
+        <div class="section-label evidence-heading"><span>Supplied evidence</span><button id="add-evidence" class="text-button" data-mutation>Add evidence</button></div><p class="field-help">Replace example sources. Include contradictions.</p>
         <div id="evidence-list" class="evidence-list"></div>
         <button id="audit-run" class="primary-button full-width" data-mutation>Review claim <span aria-hidden="true">→</span></button><div id="audit-result" class="result-area" aria-live="polite"></div>
-        <details class="artifact-section"><summary>Save a manuscript</summary><p class="field-help">Saving requires a review for this exact document and its current connections, without an action scope or unresolved severe conflicts.</p><label class="field-label" for="artifact-name">Document name</label><input id="artifact-name" class="wide-input" value="scene.md" data-mutation><label class="field-label spaced" for="artifact-content">Content</label><textarea id="artifact-content" rows="4" placeholder="Your scene or story notes…" data-mutation></textarea><button id="artifact-prepare" class="secondary-button full-width" data-mutation>Prepare review</button><button id="artifact-save" class="secondary-button full-width" data-mutation>Save document</button><p id="artifact-status" class="field-help" role="status"></p></details>
+        <details class="artifact-section"><summary>Save an artifact</summary><p class="field-help">Saving requires a review for this exact artifact and its current relationships, without an action scope or unresolved severe conflicts.</p><label class="field-label" for="artifact-name">Artifact name</label><input id="artifact-name" class="wide-input" value="plan.md" data-mutation><label class="field-label spaced" for="artifact-content">Content</label><textarea id="artifact-content" rows="4" placeholder="Your reviewed content…" data-mutation></textarea><button id="artifact-prepare" class="secondary-button full-width" data-mutation>Prepare review</button><button id="artifact-save" class="secondary-button full-width" data-mutation>Save artifact</button><p id="artifact-status" class="field-help" role="status"></p></details>
       </section>
       <section id="ledger-panel" role="tabpanel" aria-labelledby="ledger-tab" class="tool-panel" hidden>
         <div id="usage-totals" class="usage-totals"></div><div id="budget-display" class="budget-display"></div><div class="section-label"><span>Usage entries</span><span id="usage-count" class="count">0</span></div><div id="usage-entries" class="ledger-entries"></div>
-        <details class="working-memory" open><summary>Story notes</summary><pre id="memory-preview" class="json-preview">{}</pre><label class="field-label" for="memory-key">Note name</label><input id="memory-key" class="wide-input" placeholder="e.g. protagonist_motive" maxlength="128" data-mutation><label class="field-label spaced" for="memory-value">Note</label><textarea id="memory-value" rows="2" placeholder="What should this draft remember?" data-mutation></textarea><button id="memory-save" class="secondary-button full-width" data-mutation>Save note</button></details>
-        <details class="event-trail"><summary>Reviews and writing activity</summary><div id="event-list" class="event-list"></div></details>
-        <details class="saved-artifacts"><summary>Manuscripts and notes</summary><div id="artifact-list" class="event-list"></div></details>
+        <details class="working-memory" open><summary>Saved memory</summary><pre id="memory-preview" class="json-preview">{}</pre><label class="field-label" for="memory-key">Key</label><input id="memory-key" class="wide-input" placeholder="e.g. objective" maxlength="128" data-mutation><label class="field-label spaced" for="memory-value">Value</label><textarea id="memory-value" rows="2" placeholder="What should this branch remember?" data-mutation></textarea><button id="memory-save" class="secondary-button full-width" data-mutation>Save memory</button></details>
+        <details class="event-trail"><summary>Audit and activity history</summary><div id="event-list" class="event-list"></div></details>
+        <details class="saved-artifacts"><summary>Saved artifacts</summary><div id="artifact-list" class="event-list"></div></details>
       </section>
     </aside>
   </div>

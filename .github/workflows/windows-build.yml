@@ -6,6 +6,7 @@ on:
     tags: ['v*']
     paths:
       - 'dao/**'
+      - 'dao_narrative/**'
       - 'packaging/**'
       - 'scripts/**'
       - 'tests/**'
@@ -22,6 +23,13 @@ permissions:
 
 jobs:
   build:
+    strategy:
+      matrix:
+        include:
+          - app: dao
+            name: Dao
+          - app: narrative
+            name: DaoNarrative
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -34,18 +42,19 @@ jobs:
       - name: Run tests
         run: python -m unittest discover -s tests -v
       - name: Build standalone executable
-        run: python scripts/build_windows.py
+        run: python scripts/build_windows.py --app ${{ matrix.app }} --output-dir dist/windows/${{ matrix.name }}
       - name: Smoke test terminal executable
-        run: python scripts/smoke_windows.py dist/windows/Dao.exe
+        run: python scripts/smoke_windows.py dist/windows/${{ matrix.name }}/${{ matrix.name }}.exe --app ${{ matrix.app }}
       - uses: actions/upload-artifact@v4
         with:
-          name: Dao-windows-x64
+          name: ${{ matrix.name }}-windows-x64
           path: |
-            dist/windows/Dao.exe
-            dist/windows/SHA256SUMS
-            dist/windows/LICENSE
-            dist/windows/README.txt
-            dist/windows/Dao-windows-x64-*.zip
+            dist/windows/${{ matrix.name }}/${{ matrix.name }}.exe
+            dist/windows/${{ matrix.name }}/${{ matrix.name }}.exe.sha256
+            dist/windows/${{ matrix.name }}/SHA256SUMS
+            dist/windows/${{ matrix.name }}/LICENSE
+            dist/windows/${{ matrix.name }}/README.txt
+            dist/windows/${{ matrix.name }}/${{ matrix.name }}-windows-x64-*.zip
           if-no-files-found: error
           retention-days: 30
 
@@ -58,7 +67,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: Dao-windows-x64
+          pattern: '*-windows-x64'
           path: release-assets
       - name: Publish tagged Windows release
         shell: pwsh
@@ -66,7 +75,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           Set-Location release-assets
-          $packageArchive = Get-ChildItem -LiteralPath . -Filter 'Dao-windows-x64-*.zip' | Select-Object -ExpandProperty Name
-          if (@($packageArchive).Count -ne 1) { throw 'Expected exactly one runnable package archive.' }
-          gh release create $env:GITHUB_REF_NAME Dao.exe SHA256SUMS $packageArchive --verify-tag --repo $env:GITHUB_REPOSITORY --title "Dao $env:GITHUB_REF_NAME" --notes "Standalone Windows x64 terminal and browser workspace. Starts with the offline demo; live AI uses process environment settings. Includes revision history, branches, evidence review, relationship conflicts, and usage accounting."
+          $packageArchives = @(Get-ChildItem -LiteralPath . -Filter '*-windows-x64-*.zip' -Recurse)
+          $executables = @(Get-ChildItem -LiteralPath . -Filter '*.exe' -Recurse)
+          $checksums = @(Get-ChildItem -LiteralPath . -Filter '*.exe.sha256' -Recurse)
+          if ($packageArchives.Count -ne 2 -or $executables.Count -ne 2 -or $checksums.Count -ne 2) { throw 'Expected two application packages, executables, and checksums.' }
+          $releaseAssets = @($packageArchives.FullName) + @($executables.FullName) + @($checksums.FullName)
+          gh release create $env:GITHUB_REF_NAME @releaseAssets --verify-tag --repo $env:GITHUB_REPOSITORY --title "Dao $env:GITHUB_REF_NAME" --notes "Separate Dao and Dao Narrative Windows x64 apps, each with terminal and browser interfaces and its own default data folder. Both start with the offline demo; live AI uses process environment settings."
           if ($LASTEXITCODE -ne 0) { throw 'GitHub release publication failed.' }

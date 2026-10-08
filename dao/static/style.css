@@ -34,9 +34,12 @@ summary::marker { color: var(--accent); }
 .app-shell.tools-open { grid-template-columns: 240px minmax(0, 1fr) 380px; }
 .app-header { background: rgba(251, 253, 255, .92); grid-column: 1 / -1; display: flex; align-items: center; gap: 28px; padding: 0 24px; border-bottom: 1px solid var(--line); }
 .brand { display: flex; align-items: center; gap: 12px; color: var(--text); text-decoration: none; font: italic 400 35px/1 var(--heading); letter-spacing: .3px; }
+.edition-label { display: block; margin-top: 3px; font: 500 11px/1 var(--sans); letter-spacing: .3px; color: var(--muted); }
 /* Impact has one weight; trim its strokes slightly without changing its shapes. */
 .heading-effects { position: absolute; width: 0; height: 0; pointer-events: none; }
 .brand > span, .conversation-heading h1, .empty-state h2, .tool-intro h2, .recommendation-card h3 { filter: url(#dao-light-heading); }
+.brand > .brand-label { filter: none; }
+.brand-name { filter: url(#dao-light-heading); }
 .soft-period { color: var(--accent); }
 .dao-mark { width: 40px; height: 40px; flex-shrink: 0; border-radius: 4px; }
 .header-caption { color: var(--muted); font-size: 13px; }

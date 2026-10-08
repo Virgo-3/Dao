@@ -23,8 +23,9 @@ PYINSTALLER_VERSION = "6.22.3"
 
 def main(argv: list[str] | None = None) -> int:
     repo = Path(__file__).resolve().parents[1]
-    parser = argparse.ArgumentParser(description="Build the standalone Windows x64 Dao executable")
-    parser.add_argument("--output-dir", type=Path, default=repo / "dist" / "windows", help="Package output directory (default: dist/windows)")
+    parser = argparse.ArgumentParser(description="Build a standalone Windows x64 Dao application")
+    parser.add_argument("--app", choices=("dao", "narrative"), default="dao", help="Application to package")
+    parser.add_argument("--output-dir", type=Path, help="Package output directory")
     args = parser.parse_args(argv)
     if sys.platform != "win32":
         parser.error("Windows executable builds must run on Windows; use the Windows build GitHub Actions workflow on other systems.")
@@ -37,45 +38,54 @@ def main(argv: list[str] | None = None) -> int:
     if installed != PYINSTALLER_VERSION:
         parser.error(f"This build requires PyInstaller {PYINSTALLER_VERSION}; found {installed}. Install the pinned version first.")
 
-    output = args.output_dir.resolve()
-    work = repo / "build" / "windows"
+    narrative = args.app == "narrative"
+    name = "DaoNarrative" if narrative else "Dao"
+    display_name = "Dao Narrative" if narrative else "Dao"
+    output = (args.output_dir or repo / "dist" / ("windows-narrative" if narrative else "windows")).resolve()
+    work = repo / "build" / "windows" / name
     output.mkdir(parents=True, exist_ok=True)
     work.mkdir(parents=True, exist_ok=True)
     command = [
         sys.executable, "-m", "PyInstaller",
-        "--onefile", "--console", "--noupx", "--name", "Dao",
+        "--onefile", "--console", "--noupx", "--name", name,
         "--icon", str(repo / "dao" / "static" / "dao.ico"),
         "--add-data", f"{repo / 'dao' / 'static'}:dao/static",
         "--paths", str(repo),
         "--distpath", str(output),
         "--workpath", str(work),
         "--specpath", str(work),
-        str(repo / "packaging" / "dao_entry.py"),
     ]
+    if narrative:
+        command.extend(["--add-data", f"{repo / 'dao_narrative' / 'static'}:dao_narrative/static"])
+    command.append(str(repo / "packaging" / ("dao_narrative_entry.py" if narrative else "dao_entry.py")))
     try:
         subprocess.run(command, cwd=repo, check=True)
     except subprocess.CalledProcessError as exc:
         print(f"PyInstaller build failed with exit code {exc.returncode}.", file=sys.stderr)
         return exc.returncode
 
-    executable = output / "Dao.exe"
+    executable = output / f"{name}.exe"
     if not executable.is_file() or executable.stat().st_size == 0:
-        print("Build did not produce a nonempty Dao.exe.", file=sys.stderr)
+        print(f"Build did not produce a nonempty {name}.exe.", file=sys.stderr)
         return 1
     with (repo / "pyproject.toml").open("rb") as source:
         version = tomllib.load(source)["project"]["version"]
     shutil.copyfile(repo / "LICENSE", output / "LICENSE")
     readme = output / "README.txt"
+    purpose = ("A writing room with alternate drafts and saved versions." if narrative else
+               "A conversational workspace with branches, revisions, evidence review, and decisions.")
+    commands = ("/draft NAME, /notes, /explore, /review PATH, and /activity" if narrative else
+                "/branch NAME, /memory, /decide, /audit PATH, and /usage")
     readme.write_text(
-        f"Dao {version} — Windows x64\n\n"
+        f"{display_name} {version} — Windows x64\n\n"
         "No Python installation is needed. Extract the package before running.\n"
         "Open PowerShell in this directory and run:\n"
-        "  .\\Dao.exe\n"
-        "  .\\Dao.exe --web --open-browser\n\n"
-        "Dao opens a writing room with alternate drafts and saved versions.\n"
+        f"  .\\{name}.exe\n"
+        f"  .\\{name}.exe --web --open-browser\n\n"
+        f"{purpose}\n"
         "It starts with the offline demo. Enter /help for terminal commands.\n"
-        "Try /draft NAME, /notes, /explore, /review PATH, and /activity.\n"
-        "State persists at %LOCALAPPDATA%\\Dao\\state.sqlite3.\n"
+        f"Try {commands}.\n"
+        f"State persists at %LOCALAPPDATA%\\{name}\\state.sqlite3.\n"
         "Use --db PATH to select a separate database; terminal and browser can share it.\n"
         "The Python runtime is bundled. Credentials and conversation state are not included.\n"
         "The executable is unsigned. Its SHA-256 is in SHA256SUMS.\n\n"
@@ -89,8 +99,9 @@ def main(argv: list[str] | None = None) -> int:
     with executable.open("rb") as source:
         digest = hashlib.file_digest(source, "sha256").hexdigest()
     checksum = output / "SHA256SUMS"
-    checksum.write_text(f"{digest}  Dao.exe\n", encoding="ascii")
-    archive = output / f"Dao-windows-x64-{version}.zip"
+    checksum.write_text(f"{digest}  {name}.exe\n", encoding="ascii")
+    (output / f"{name}.exe.sha256").write_text(checksum.read_text(encoding="ascii"), encoding="ascii")
+    archive = output / f"{name}-windows-x64-{version}.zip"
     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as package:
         for path in (executable, checksum, output / "LICENSE", readme):
             package.write(path, arcname=path.name)

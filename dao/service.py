@@ -26,6 +26,18 @@ class Dao:
         self.store, self.config = store, config
         self._locks, self._guard = {}, threading.Lock()
 
+    def example_problem(self):
+        return demo_payload()
+
+    def demo_response(self, state):
+        return demo_stream(state)
+
+    def memory_message(self, key, value):
+        return f"Saved {key}: {value}. This memory is part of this branch’s state."
+
+    def decision_message(self, result):
+        return "Decision example: " + result["reason"] + "\n\nInspect the Decision panel for the inputs and utility calculation."
+
     @contextmanager
     def branch_lock(self, branch):
         branch = text(branch, "branch", 80)
@@ -182,17 +194,17 @@ class Dao:
                     if len(state["memory"]) >= 100 and key not in state["memory"]:
                         raise ValueError("Memory is limited to 100 entries")
                     state["memory"][key] = value
-                    stream = iter([{"type": "delta", "text": f"Saved {key}: {value}. This memory is part of this branch’s state."}])
+                    stream = iter([{"type": "delta", "text": self.memory_message(key, value)}])
                 elif not literal and message == "/decide":
-                    problem = demo_payload()
+                    problem = self.example_problem()
                     result = self.evaluate_problem(state, problem)
                     state["decisions"].append({"id": uuid.uuid4().hex, "problem": problem, "result": result})
-                    stream = iter([{"type": "delta", "text": "Decision example: " + result["reason"] + "\n\nInspect the Decision panel for the inputs and utility calculation."}])
+                    stream = iter([{"type": "delta", "text": self.decision_message(result)}])
                 else:
                     active_id = uuid.uuid4().hex
                     self.store.reserve_usage(branch, active_id, reserve, self.config.token_budget)
                     self.store.append_event(branch, "model_attempt", {"request_id": active_id, "provider": self.config.provider})
-                    stream = (demo_stream(state) if self.config.provider == "demo" else
+                    stream = (self.demo_response(state) if self.config.provider == "demo" else
                               openai_stream(state, self.config, lambda problem: self.evaluate_problem(state, problem)))
                 for event in stream:
                     if event["type"] == "delta":

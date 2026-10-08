@@ -1,14 +1,16 @@
 # Dao
 
-**A writing room, with room for another draft.**
+**A flowing conversation, with room to change your mind.**
 
-Dao is a local conversational writing room for scenes, characters, and alternate story directions. Drafts and saved versions preserve your conversation, notes, comparisons, connections, reviews, documents, and usage. The writing language is the default interface; existing state formats and APIs remain compatible.
+Dao is a local conversational agent with saved revision history and branches. It records messages, decisions, audits, relationships, tool results, and usage. Its decision engine compares acting, waiting for information, and abstaining. Its relationship graph keeps beliefs separate from reported observations and tracks unresolved conflicts that can exclude particular actions from the calculation.
+
+This guide describes the default, general-purpose Dao app. [Dao Narrative](narrative.md) is a separate writing app with its own launcher, executable, default database, and port. Both use the same runtime.
 
 ![Dao workspace](workspace.jpg)
 
 ## Windows executable
 
-Download the standalone **Windows x64** package from [Releases](https://github.com/Virgo-3/Dao/releases/latest) and extract it. No Python installation is needed. Open PowerShell in the package folder:
+Get the current standalone **Windows x64** Dao package from the [Windows build workflow](https://github.com/Virgo-3/Dao/actions/workflows/windows-build.yml) and extract its runnable ZIP. Tagged packages are also available under [Releases](https://github.com/Virgo-3/Dao/releases). No Python installation is needed. Open PowerShell in the package folder:
 
 ```powershell
 .\Dao.exe
@@ -54,14 +56,14 @@ Use a Responses API model available to your account. Live inference sends the cu
 
 ## Explore
 
-1. Bring a scene or an unfinished idea. Enter `/remember protagonist_motive=Protect Ivo` to save a story note, or `/explore` in the terminal for an illustrative comparison.
-2. Create another draft from the current version. Its notes, messages, comparisons, and documents evolve separately.
-3. Restore an earlier version. Restore creates a new version; earlier versions, reviews, and recorded usage remain available.
-4. Open **Explore** and edit the finite scenario model. Enter explicit probabilities, payoffs, reversibility, costs, and signal likelihoods. These calculations evaluate your assumptions, not literary quality.
-5. Open **Connections** to connect story elements, assess beliefs, and record observations. Inspect coherence, coverage, and unresolved conflicts together. These are model diagnostics, not continuity scores. Unresolved severe conflicts exclude their declared choices until a review allows resolution. See the [connection workflow](relationships.md).
-6. Open **Review** to check a claim against supplied notes and excerpts. Source labels and reliability scores come from you. Contradictions prevent approval; a supported result means the sources meet the policy, without establishing factual truth or deciding canon. Record intentional ambiguity in your notes.
-7. Prepare a document review for its exact name, content, and current connections. Review the prepared claim, then save with the latest matching verdict. Saving requires a verdict without an action scope and no unresolved severe conflicts. Manuscripts and notes are content stored in Dao's database.
-8. Open **Activity** for usage, story notes, and saved documents; export the draft or verify versions from the header.
+1. Have a conversation. Enter `/remember approach=Prefer reversible experiments` to save branch-local memory, or `/decide` for an example recorded in state.
+2. Create a branch from the current checkpoint. Its memory, messages, decisions, and artifacts evolve separately.
+3. Restore an earlier checkpoint. Restore creates a new revision; prior revisions, audit events, and recorded usage remain available.
+4. Open **Decision** and edit the finite scenario model. Enter explicit probabilities, payoffs, reversibility, costs, and signal likelihoods. Inspect both the recommendation and its calculation.
+5. Open **Relationships** to define weighted directed relations, assess beliefs, and record reported observations with their action and context. Review coherence, coverage, and unresolved conflicts together. Unresolved severe conflicts exclude their declared actions until an audit allows resolution. See the [relationship workflow](relationships.md).
+6. Open **Audit** to review evidence for a claim and record a verdict. Source labels and reliability scores are supplied by you. Contradictions prevent approval; a supported verdict means the evidence meets the policy, without establishing factual truth.
+7. Prepare an artifact claim for its exact name, content, and current relationship state. Review the claim, then save with the latest matching verdict. Saving requires a verdict without an action scope and no unresolved severe conflicts. Artifacts are content stored in Dao's database.
+8. Open **Usage** for usage, memory, and artifacts; export the branch or verify integrity from the header.
 
 ## Terms
 
@@ -74,8 +76,6 @@ Use a Responses API model available to your account. Live inference sends the cu
 | Audit | A review of submitted evidence under an explicit policy, also called adjudication |
 | Verdict | The audit's recorded result; permission also depends on the current state and operation |
 | Artifact | Named content saved in Dao's database |
-
-The interface calls branches **drafts**, revisions and checkpoints **saved versions**, memory **story notes**, audits **reviews**, and artifacts **documents**. Technical API fields and export schemas keep their original names. Earlier terminal commands remain aliases; see the [terminal guide](terminal.md).
 
 ## Behavior and limits
 
@@ -105,6 +105,6 @@ python -m unittest discover -s tests -v
 node --check dao/static/app.js
 ```
 
-The suite covers Bayesian information value, abstention and reversibility, contradictory evidence, content-bound authorization, relationship conflict persistence and action exclusion, stale/concurrent updates, global budgets, stream failures, durable restart, hash tampering, HTTP origin/CSRF protection, terminal interactions, and adapter parsing with synthetic provider streams. GitHub Actions runs on Windows/Linux with Python 3.11/3.14. Node is only needed for the JavaScript syntax check. A separate Windows workflow builds the console executable, smoke-tests it, and publishes tagged releases.
+The suite covers Bayesian information value, abstention and reversibility, contradictory evidence, content-bound authorization, relationship conflict persistence and action exclusion, stale/concurrent updates, global budgets, stream failures, durable restart, hash tampering, HTTP origin/CSRF protection, terminal interactions, separate application launchers, and adapter parsing with synthetic provider streams. GitHub Actions runs on Windows/Linux with Python 3.11/3.14. Node is only needed for the JavaScript syntax checks. A separate Windows workflow builds and smoke-tests both executables and publishes tagged releases.
 
 See [architecture](architecture.md), [relationships](relationships.md), [decision model and derivation](decision-model.md), and [security boundaries](../SECURITY.md).

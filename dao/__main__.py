@@ -26,18 +26,18 @@ def default_database():
 
 
 def main(argv=None, *, default_terminal=False):
-    parser = argparse.ArgumentParser(description="Dao — a conversational workspace with revision history")
+    parser = argparse.ArgumentParser(description="Dao — a writing room with alternate drafts and saved versions")
     parser.add_argument("--version", action="version", version=f"Dao {__version__}")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--terminal", dest="interface", action="store_const", const="terminal",
-                      help="Chat directly in this terminal")
+                      help="Develop your story in this terminal")
     mode.add_argument("--web", dest="interface", action="store_const", const="web",
-                      help="Serve the local browser workspace")
+                      help="Open the local browser writing room")
     parser.set_defaults(interface="terminal" if default_terminal else "web")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--db", help="SQLite database path (shared by both interfaces)")
-    parser.add_argument("--branch", default="main", help="Initial terminal branch")
-    parser.add_argument("--open-browser", action="store_true", help="Open the web workspace on startup")
+    parser.add_argument("--branch", default="main", help="Initial terminal draft (stored as a branch)")
+    parser.add_argument("--open-browser", action="store_true", help="Open the browser writing room on startup")
     args = parser.parse_args(argv)
     if not 1 <= args.port <= 65535:
         parser.error("port must be 1..65535")

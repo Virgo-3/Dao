@@ -71,6 +71,46 @@ class TerminalTests(unittest.TestCase):
         self.assertIn('"recommendation": "wait"', output)
         self.assertIn("next = Study", output)
 
+    def test_story_commands_share_drafts_versions_and_accounting(self):
+        initial = self.store.head()["id"]
+        problem = self.file("story choice.json", demo_payload())
+        connection = self.file("story connection.json", {
+            "operation": "node", "node": {"id": "mara", "label": "Mara", "kind": "person", "importance": 1}})
+        commands = ("/remember motive=Protect Ivo\n/draft alternate\n/remember motive=Expose Ivo\n"
+                    f'/connect "{connection}"\n/connections\n/explore\n/explore "{problem}"\n'
+                    "/notes\n/drafts\n/version\n/versions\n/activity\n/switch main\n"
+                    f"/restore {initial[:12]}\n/verify\n/quit\n")
+        code, output, _ = self.run_terminal(commands)
+        self.assertEqual(code, 0)
+        self.assertNotIn("Error:", output)
+        self.assertIn("Dao writing room | draft main", output)
+        self.assertIn("motive = Expose Ivo", output)
+        self.assertIn("Try an alternate scene", output)
+        self.assertIn("Story started", output)
+        alternate = self.store.head("alternate")["state"]
+        self.assertEqual(alternate["memory"], {"motive": "Expose Ivo"})
+        self.assertEqual(len(alternate["decisions"]), 2)
+        self.assertEqual(alternate["relationships"]["nodes"]["mara"]["label"], "Mara")
+        self.assertEqual(self.store.head()["state"]["memory"], {})
+        self.assertEqual(self.store.usage()["entries"], [])
+        self.assertTrue(self.store.verify()["ok"])
+
+    def test_story_review_and_document_aliases_preserve_the_save_gate(self):
+        audit = self.audit_payload()
+        verdict = self.app.adjudicate_problem(self.store.head()["state"], audit)
+        source = self.file("review.json", audit)
+        document = self.file("manuscript.json", {
+            "name": "plan", "content": "Pilot first", "verdict_id": verdict["verdict_id"]})
+        override = self.file("review override.json", {**audit, "branch": "main"})
+        code, output, _ = self.run_terminal(
+            f"/manuscript {document}\n/review {override}\n/review {source}\n/manuscript {document}\n/quit\n")
+        self.assertEqual(code, 0)
+        self.assertEqual(output.count("Artifact needs an allowed adjudication"), 1)
+        self.assertEqual(output.count("cannot select a branch"), 1)
+        self.assertEqual(output.count("Document saved"), 1)
+        self.assertEqual(self.store.head()["state"]["artifacts"]["plan"]["content"], "Pilot first")
+        self.assertEqual(self.store.usage()["entries"], [])
+
     def test_imports_use_current_branch_and_latest_artifact_gate(self):
         audit = self.audit_payload()
         verdict = self.app.adjudicate_problem(self.store.head()["state"], audit)
@@ -80,7 +120,7 @@ class TerminalTests(unittest.TestCase):
         code, output, _ = self.run_terminal(f"/artifact {artifact_file}\n/audit {audit_file}\n/artifact {artifact_file}\n"
                                             f"/audit {contested_file}\n/artifact {artifact_file}\n/quit\n")
         self.assertEqual(code, 0)
-        self.assertEqual(output.count("Artifact saved"), 1)
+        self.assertEqual(output.count("Document saved"), 1)
         self.assertEqual(output.count("Artifact needs an allowed adjudication"), 2)
         self.assertEqual(self.store.head()["state"]["artifacts"]["plan"]["content"], "Pilot first")
         self.assertEqual(self.store.head()["state"]["audits"][-1]["verdict"], "contested")
@@ -163,7 +203,7 @@ class TerminalTests(unittest.TestCase):
         code, output, _ = self.run_terminal(f"/relate {branch_override}\n/relate {head_override}\n/conflicts\n/quit\n")
         self.assertEqual(code, 0)
         self.assertEqual(output.count("cannot select a branch"), 2)
-        self.assertIn("No unresolved relationship conflicts", output)
+        self.assertIn("No unresolved connection conflicts", output)
         self.assertEqual(self.store.head()["id"], initial)
 
     def test_relationship_summary_uses_viewed_checkpoint_until_refreshed(self):
@@ -293,7 +333,7 @@ class TerminalTests(unittest.TestCase):
         self.assertIn("Error: Unknown branch: absent\n", output)
         self.assertNotIn("'Unknown branch", output)
         self.assertEqual(terminal.branch, "main")
-        self.assertIn("No reachable checkpoint", output)
+        self.assertIn("No reachable saved version", output)
         startup, _, _ = self.run_terminal("", branch="absent")
         self.assertEqual(startup, 1)
 

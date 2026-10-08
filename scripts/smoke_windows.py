@@ -47,15 +47,16 @@ def main():
         for index, operation in enumerate(operations):
             operation_path = isolated / f"relationship-{index}.json"
             operation_path.write_text(json.dumps(operation), encoding="utf-8")
-            relationship_commands += f'/relate "{operation_path}"\n'
-        commands = ("/remember proof=packaged\n/branch standalone\n/remember proof=branch\n"
-                    + relationship_commands + "/relationships\n/conflicts\n"
-                    "Should we run a reversible pilot?\n/verify\n/usage\n/quit\n")
+            relationship_commands += f'/connect "{operation_path}"\n'
+        commands = ("/remember proof=packaged\n/draft standalone\n/remember proof=branch\n"
+                    + relationship_commands + "/connections\n/conflicts\n/explore\n/notes\n/versions\n"
+                    "Help me develop a scene with an unresolved question.\n/verify\n/activity\n/quit\n")
         terminal = subprocess.run([str(copied)], input=commands, capture_output=True,
                                   text=True, encoding="utf-8", errors="replace", env=environment,
                                   cwd=isolated, timeout=60)
         assert terminal.returncode == 0, terminal.stderr
         assert "Integrity: OK" in terminal.stdout and "Error:" not in terminal.stdout, terminal.stdout
+        assert "Dao writing room" in terminal.stdout and "Try an alternate scene" in terminal.stdout, terminal.stdout
         assert database.is_file(), "Frozen default database did not use persistent application data"
         with socket.socket() as temporary_socket:
             temporary_socket.bind(("127.0.0.1", 0))

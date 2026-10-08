@@ -19,31 +19,40 @@ import unicodedata
 
 MAX_FILE_BYTES = 128 * 1024
 
-HELP = """Chat by typing a message. Commands:
+HELP = """Develop your story by typing a message. Commands:
   /help                 Show these commands
   /quit                 Exit (EOF also exits)
-  /branches             List branches and their heads
-  /branch NAME          Fork the viewed checkpoint and switch to the new branch
-  /switch NAME          Switch to an existing branch
-  /head                 Refresh and show the current branch head
-  /history              Show reachable revisions, newest first
-  /restore ID_PREFIX    Restore a unique reachable checkpoint as a new revision
-  /remember KEY=VALUE   Save memory in the current branch
-  /memory               Show this checkpoint's saved memory
-  /relationships        Show coherence, coverage, and reported observations
-  /conflicts            Show unresolved relationship conflicts
-  /relate PATH          Apply one relationship operation JSON (up to 128 KiB)
-  /decide               Run the decision example
-  /decision PATH        Evaluate a decision JSON file (up to 128 KiB)
-  /audit PATH           Review a claim and evidence JSON file (up to 128 KiB)
-  /artifact PATH        Save an artifact with its current matching audit verdict
-  /usage                Show global usage, including prior branches and restores
-  /verify               Verify the state and event journal
+  /drafts               List drafts and their current versions
+  /draft NAME           Create an alternate draft from the viewed version
+  /switch NAME          Switch to an existing draft
+  /version              Refresh and show the draft's current version
+  /versions             Show saved versions, newest first
+  /restore ID_PREFIX    Restore a saved version as a new version
+  /remember KEY=VALUE   Save a story note in the current draft
+  /notes                Show this version's story notes
+  /connections          Inspect connection assessments and observations
+  /conflicts            Show unresolved connection conflicts
+  /connect PATH         Apply one connection operation JSON (up to 128 KiB)
+  /explore [PATH]       Compare the story example or a model JSON (up to 128 KiB)
+  /review PATH          Review a claim against source JSON (up to 128 KiB)
+  /manuscript PATH      Save a document with its current matching review
+  /activity             Show usage across all drafts and restores
+  /verify               Verify saved versions and the activity journal
   /export PATH          Create a readable dao-export-v1 JSON file; never overwrite
   /say TEXT             Send literal text, including a slash-prefixed message
+Earlier commands remain aliases: /branches, /branch, /head, /history, /memory,
+/relationships, /relate, /decide, /decision, /audit, /artifact, /usage.
+Comparisons use supplied assumptions, not literary scores. Reviews do not decide canon.
 Paths may contain spaces; surrounding quotes are optional.
 Ctrl+C at the prompt exits. During a turn, it exits after state and usage are recorded.
 """
+
+COMMAND_ALIASES = {
+    "/drafts": "/branches", "/draft": "/branch", "/version": "/head",
+    "/versions": "/history", "/notes": "/memory", "/connections": "/relationships",
+    "/connect": "/relate", "/review": "/audit", "/manuscript": "/artifact",
+    "/activity": "/usage",
+}
 
 
 class _TextFilter:
@@ -222,7 +231,9 @@ class Terminal:
                 elif kind == "tool":
                     self._emit(display.feed("", final=True))
                     display = _Display(self._secret)
-                    self._write("\nTool: " + str(event["name"]) + "\n")
+                    name = {"remember": "Story note", "decision": "Story comparison",
+                            "evaluate_decision": "Story comparison"}.get(event["name"], str(event["name"]))
+                    self._write("\n" + name + ":\n")
                     self._json(event["result"])
                     speaking = False
                 elif kind in {"done", "error"}:
@@ -250,8 +261,11 @@ class Terminal:
 
     def _command(self, line):
         parts = line.split(None, 1)
-        command = parts[0]
+        requested_command = parts[0]
         argument = parts[1].strip() if len(parts) == 2 else ""
+        command = COMMAND_ALIASES.get(requested_command, requested_command)
+        if command == "/explore":
+            command = "/decision" if argument else "/decide"
         if command == "/say":
             if not argument:
                 raise ValueError("Use /say TEXT")
@@ -261,13 +275,13 @@ class Terminal:
                 raise ValueError("Use /remember KEY=VALUE")
             self._chat(command + " " + argument)
         elif command == "/decide":
-            self._no_argument(command, argument)
+            self._no_argument(requested_command, argument)
             self._chat(command)
             decisions = self.head["state"].get("decisions", [])
             if decisions:
                 self._json(decisions[-1]["result"])
         elif command in {"/help", "/quit", "/branches", "/head", "/history", "/memory", "/relationships", "/conflicts", "/usage", "/verify"}:
-            self._no_argument(command, argument)
+            self._no_argument(requested_command, argument)
             if command == "/quit":
                 return False
             if command == "/help":
@@ -278,14 +292,21 @@ class Terminal:
                     self._write(f"{marker} {branch['name']} {branch['head'][:12]}\n")
             elif command == "/head":
                 self._refresh()
-                self._write(f"{self.branch}: {self.head['id']}\n")
+                self._write(f"Draft {self.branch} | version {self.head['id']}\n")
             elif command == "/history":
                 for commit in self.app.store.history(self.branch):
-                    self._write(f"{commit['id'][:12]}  {commit['kind']}  {commit['label']}\n")
+                    label = "Story started" if commit["kind"] == "bootstrap" else commit["label"]
+                    if commit["kind"] == "decision" and label.startswith("Decision: "):
+                        label = "Comparison: " + label[len("Decision: "):]
+                    elif commit["kind"] == "adjudication" and label.startswith("Audit: "):
+                        label = "Review: " + label[len("Audit: "):]
+                    elif commit["kind"].startswith("relationship.") and label.startswith("Relationship "):
+                        label = "Connection " + label[len("Relationship "):]
+                    self._write(f"{commit['id'][:12]}  {label}\n")
             elif command == "/memory":
                 memory = self.head["state"].get("memory", {})
                 if not memory:
-                    self._write("No saved memory at this checkpoint.\n")
+                    self._write("No story notes at this version.\n")
                 for key, value in memory.items():
                     self._write(f"{key} = {value}\n")
             elif command == "/usage":
@@ -297,7 +318,7 @@ class Terminal:
                 if command == "/conflicts":
                     conflicts = summary["unresolved_conflicts"]
                     if not conflicts:
-                        self._write("No unresolved relationship conflicts at this checkpoint.\n")
+                        self._write("No unresolved connection conflicts at this version.\n")
                     self._json(conflicts)
                 else:
                     coherence = summary["coherence"]
@@ -307,35 +328,35 @@ class Terminal:
             elif command == "/verify":
                 result = self.app.store.verify()
                 if result["ok"]:
-                    self._write(f"Integrity: OK ({result['commits']} revisions, {result['events']} events)\n")
+                    self._write(f"Integrity: OK ({result['commits']} versions, {result['events']} events)\n")
                 else:
                     self._write("Integrity: FAILED\n")
                     for error in result["errors"]:
                         self._write(str(error) + "\n")
         elif command == "/branch":
             if not argument:
-                raise ValueError("Use /branch NAME")
+                raise ValueError("Use /draft NAME")
             result = self.app.mutate("/api/branches", {"name": argument, "from_commit": self.head["id"]})
             self.branch = result["branch"]["name"]
             self._refresh()
-            self._write(f"Created and switched to {self.branch} at {self.head['id'][:12]}.\n")
+            self._write(f"Created and switched to draft {self.branch} at version {self.head['id'][:12]}.\n")
         elif command == "/switch":
             if not argument:
                 raise ValueError("Use /switch NAME")
             head = self.app.store.head(argument)
             self.branch, self.head = argument, head
-            self._write(f"Switched to {self.branch} at {self.head['id'][:12]}.\n")
+            self._write(f"Switched to draft {self.branch} at version {self.head['id'][:12]}.\n")
         elif command == "/restore":
             if not re.fullmatch(r"[0-9a-fA-F]{1,64}", argument):
-                raise ValueError("Use /restore ID_PREFIX with a hexadecimal checkpoint prefix")
+                raise ValueError("Use /restore ID_PREFIX with a hexadecimal version prefix")
             candidates = [commit for commit in self.app.store.history(self.branch)
                           if commit["id"].startswith(argument.lower())]
             if not candidates:
-                raise ValueError("No reachable checkpoint matches that prefix")
+                raise ValueError("No reachable saved version matches that prefix")
             if len(candidates) != 1:
-                raise ValueError("Checkpoint prefix is ambiguous; use more characters")
+                raise ValueError("Version prefix is ambiguous; use more characters")
             result = self._mutate("/api/restore", commit_id=candidates[0]["id"])
-            self._write(f"Restored as checkpoint {result['head']['id'][:12]}; usage is retained.\n")
+            self._write(f"Restored as version {result['head']['id'][:12]}; usage is retained.\n")
         elif command in {"/decision", "/audit", "/artifact", "/relate"}:
             payload = self._load(argument)
             if command == "/decision":
@@ -344,13 +365,13 @@ class Terminal:
                 if {"branch", "expected_head"} & set(payload):
                     raise ValueError("Imported JSON cannot select a branch or override the expected head")
                 if command == "/artifact" and set(payload) - {"name", "content", "verdict_id"}:
-                    raise ValueError("Artifact JSON accepts only name, content, and verdict_id")
+                    raise ValueError("Document JSON accepts only name, content, and verdict_id")
                 route = "/api/relationships" if command == "/relate" else "/api" + command
                 result = self._mutate(route, **payload)
             if result.get("result") is not None:
                 self._json(result["result"])
             else:
-                self._write(f"Artifact saved at checkpoint {self.head['id'][:12]}.\n")
+                self._write(f"Document saved at version {self.head['id'][:12]}.\n")
         elif command == "/export":
             path = self._path(argument)
             payload = {"schema": "dao-export-v1", **self.app.snapshot(self.branch)}
@@ -384,8 +405,8 @@ class Terminal:
         except Exception as exc:
             self._error(exc)
             return 1
-        self._write(f"Dao terminal | branch {self.branch} | {self.app.config.public()['provider']}\n")
-        self._write("Type /help for commands.\n")
+        self._write(f"Dao writing room | draft {self.branch} | {self.app.config.public()['provider']}\n")
+        self._write("Bring a scene, a character, or an unfinished idea. Type /help for commands.\n")
         while not self._stop_requested and not self._output_failed:
             self._write(f"{self.branch}@{self.head['id'][:12]}> ")
             if self._output_failed:

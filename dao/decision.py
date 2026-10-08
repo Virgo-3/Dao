@@ -309,16 +309,16 @@ def evaluate(payload: Any, *, blocked_actions: dict[str, list[str]] | None = Non
 
 
 def demo_payload() -> dict[str, Any]:
-    """An informative study makes waiting preferable to a risky launch or pilot."""
+    """Illustrative story choices; the numbers are assumptions, not literary scores."""
     return {
-        "scenarios": [{"name": "Demand holds", "probability": 0.5},
-                      {"name": "Demand fades", "probability": 0.5}],
-        "actions": [{"name": "Full launch", "payoffs": [120, -100], "cost": 5,
+        "scenarios": [{"name": "The reveal feels earned", "probability": 0.5},
+                      {"name": "The reveal needs setup", "probability": 0.5}],
+        "actions": [{"name": "Commit to the ending", "payoffs": [120, -100], "cost": 5,
                      "reversibility": 0.1, "rollback_cost": 10},
-                    {"name": "Reversible pilot", "payoffs": [35, -10], "cost": 5,
+                    {"name": "Try an alternate scene", "payoffs": [35, -10], "cost": 5,
                      "reversibility": 0.95, "rollback_cost": 2}],
-        "signals": [{"name": "Strong study", "likelihoods": [0.9, 0.1]},
-                    {"name": "Weak study", "likelihoods": [0.1, 0.9]}],
+        "signals": [{"name": "Reader finds the reveal earned", "likelihoods": [0.9, 0.1]},
+                    {"name": "Reader asks for more setup", "likelihoods": [0.1, 0.9]}],
         "waiting_cost": 3,
         "discount": 0.95,
         "irreversibility_penalty": 8,

@@ -71,7 +71,7 @@ function setBusy(value) {
   $("branch-select").disabled = busy || !ready;
   $("export-button").disabled = busy || !ready;
   $("send-label").textContent = busy ? "Working" : "Send";
-  $("composer-hint").textContent = busy ? "Working…" : "Saved in this branch";
+  $("composer-hint").textContent = busy ? "Working…" : "Saved in this draft";
   $("chat-form").setAttribute("aria-busy", String(busy));
 }
 
@@ -113,7 +113,7 @@ function resetVerdict() {
   auditVerdict = null;
   $("artifact-save").dataset.intrinsicDisabled = "true";
   $("artifact-save").disabled = true;
-  $("artifact-status").textContent = "Prepare and review this artifact’s claim before saving.";
+  $("artifact-status").textContent = "Prepare and review this document’s claim before saving.";
 }
 
 function daoIcon(className = "") {
@@ -154,9 +154,9 @@ function renderConversation() {
     const empty = node("section", "empty-state");
     const emblem = daoIcon("empty-emblem");
     const heading = node("h2");
-    heading.textContent = "Room to think.";
+    heading.textContent = "Where next?";
     const copy = node("p");
-    copy.append(document.createTextNode("Ask a question, explore a decision,"), node("br"), document.createTextNode("or start with one of the prompts below."));
+    copy.append(document.createTextNode("Bring a scene, a character, or an unfinished idea."), node("br"), document.createTextNode("Explore where the story could go."));
     empty.append(emblem, heading, copy);
     $("messages").append(empty);
   } else {
@@ -175,7 +175,7 @@ function renderBranches() {
     $("branch-select").append(option);
   });
   $("active-branch").textContent = `⑂ ${branch}`;
-  $("revision-label").textContent = idOf(workspace?.head) ? `Revision ${idOf(workspace.head).slice(0, 8)}` : "Revision history is saved";
+  $("revision-label").textContent = idOf(workspace?.head) ? `Version ${idOf(workspace.head).slice(0, 8)}` : "Your versions are saved";
 }
 
 function renderHistory() {
@@ -183,15 +183,20 @@ function renderHistory() {
   $("history-count").textContent = history.length;
   $("history-list").replaceChildren();
   if (!history.length) {
-    $("history-list").append(node("li", "empty-copy", "No revisions to display."));
+    $("history-list").append(node("li", "empty-copy", "No saved versions to display."));
     return;
   }
   history.forEach((commit) => {
     const current = idOf(commit) === idOf(workspace.head);
     const item = node("li", `history-item${current ? " current" : ""}`);
-    item.append(node("div", "history-title", commit.label || titleCase(commit.kind || "State")));
+    let label = commit.label || titleCase(commit.kind || "Version");
+    if (commit.kind === "bootstrap") label = "Story started";
+    else if (commit.kind === "decision" && label.startsWith("Decision: ")) label = label.replace(/^Decision: /, "Comparison: ");
+    else if (commit.kind === "adjudication" && label.startsWith("Audit: ")) label = label.replace(/^Audit: /, "Review: ");
+    else if (commit.kind?.startsWith("relationship.") && label.startsWith("Relationship ")) label = label.replace(/^Relationship /, "Connection ");
+    item.append(node("div", "history-title", label));
     item.append(node("div", "history-meta", `${idOf(commit).slice(0, 7)} · ${formatTime(commit.created_at)}`));
-    const restore = node("button", "history-action", current ? "Current checkpoint" : "↶ Restore checkpoint");
+    const restore = node("button", "history-action", current ? "Current version" : "↶ Restore version");
     restore.type = "button";
     restore.dataset.mutation = "";
     restore.dataset.intrinsicDisabled = String(current);
@@ -202,7 +207,7 @@ function renderHistory() {
       $("decision-result").replaceChildren();
       $("audit-result").replaceChildren();
       await refresh();
-      notify("Checkpoint restored as a new revision. History and usage are preserved.");
+      notify("Restored as a new version. Earlier versions and usage stay saved.");
     }));
     item.append(restore);
     $("history-list").append(item);
@@ -226,7 +231,7 @@ function renderUsage() {
   $("budget-display").replaceChildren();
   const budget = workspace?.config?.token_budget;
   if (typeof budget === "number" && budget > 0) {
-    $("budget-display").append(node("div", "", `${formatNumber(totalTokens, 0)} / ${formatNumber(budget, 0)} lifetime token budget · all branches`));
+    $("budget-display").append(node("div", "", `${formatNumber(totalTokens, 0)} / ${formatNumber(budget, 0)} lifetime token budget · all drafts`));
     const progress = node("progress");
     progress.max = budget;
     progress.value = Math.min(totalTokens, budget);
@@ -250,7 +255,7 @@ function renderUsage() {
   $("memory-preview").textContent = JSON.stringify(versionedState().memory || {}, null, 2);
   $("event-list").replaceChildren();
   const events = workspace?.events || [];
-  if (!events.length) $("event-list").append(node("p", "empty-copy", "Audits and state changes appear here."));
+  if (!events.length) $("event-list").append(node("p", "empty-copy", "Reviews and saved changes appear here."));
   [...events].reverse().forEach((event) => {
     const item = node("div", "event-item");
     item.append(node("strong", "", titleCase(event.kind || event.type || event.action || "Event")));
@@ -260,7 +265,7 @@ function renderUsage() {
   $("artifact-list").replaceChildren();
   const artifacts = versionedState().artifacts || {};
   const artifactEntries = Object.entries(artifacts);
-  if (!artifactEntries.length) $("artifact-list").append(node("p", "empty-copy", "No artifacts saved in this branch."));
+  if (!artifactEntries.length) $("artifact-list").append(node("p", "empty-copy", "No manuscripts or notes saved in this draft."));
   artifactEntries.forEach(([name, content]) => {
     const details = node("details", "event-item");
     details.append(node("summary", "", name), node("pre", "json-preview", typeof content === "string" ? content : JSON.stringify(content, null, 2)));
@@ -301,19 +306,19 @@ function renderRelationships() {
   );
   $("conflict-count").textContent = String(conflicts.length);
   $("relationship-conflicts").replaceChildren();
-  if (!conflicts.length) $("relationship-conflicts").append(node("p", "empty-copy", "No unresolved conflicts at this checkpoint."));
+  if (!conflicts.length) $("relationship-conflicts").append(node("p", "empty-copy", "No unresolved connection conflicts in this version."));
   conflicts.forEach((conflict) => {
     const item = node("details", `event-item${conflict.severe ? " conflict-severe" : ""}`);
     const relation = versionedState().relationships?.relations?.[conflict.relation_id];
     const actions = Array.isArray(conflict.actions) ? conflict.actions : relation?.actions || [];
-    item.append(node("summary", "", `${conflict.severe ? "Severe · " : ""}${conflict.relation_id || conflict.id || "Relationship conflict"}`));
-    item.append(node("p", "", actions.length ? `Affected actions: ${actions.join(", ")}` : "Affects every action."));
+    item.append(node("summary", "", `${conflict.severe ? "Severe · " : ""}${conflict.relation_id || conflict.id || "Connection conflict"}`));
+    item.append(node("p", "", actions.length ? `Affected choices: ${actions.join(", ")}` : "Affects every choice."));
     item.append(node("pre", "json-preview", JSON.stringify(conflict, null, 2)));
     $("relationship-conflicts").append(item);
   });
   $("relationship-details").replaceChildren();
   addJsonDetails($("relationship-details"), summary, "Weighted summary and transition estimates");
-  addJsonDetails($("relationship-details"), versionedState().relationships || {}, "Versioned nodes, relations, beliefs, and observations");
+  addJsonDetails($("relationship-details"), versionedState().relationships || {}, "Saved connections, assessments, and observations");
 }
 
 async function refresh(nextBranch = branch) {
@@ -380,10 +385,10 @@ function addEvidence(initial = {}) {
 
 function renderDecision(result) {
   const container = $("decision-result");
-  container.replaceChildren(node("div", "result-heading", "LATEST SAVED DECISION"));
+  container.replaceChildren(node("div", "result-heading", "LATEST SAVED COMPARISON"));
   const summary = node("div", "recommendation-card");
   summary.append(node("div", "result-kicker", "Recommendation"));
-  const recommendation = result.recommendation === "act" ? `Act: ${result.selected_action || "selected action"}` : result.recommendation === "wait" ? "Wait for information" : result.recommendation === "abstain" ? "Abstain" : scalar(result.recommendation || result.selected_action || "Result recorded");
+  const recommendation = result.recommendation === "act" ? `Choose: ${result.selected_action || "selected action"}` : result.recommendation === "wait" ? "Explore before committing" : result.recommendation === "abstain" ? "Leave the choice open" : scalar(result.recommendation || result.selected_action || "Result recorded");
   summary.append(node("h3", "", recommendation));
   if (result.reason) summary.append(node("p", "", scalar(result.reason)));
   if (result.recommendation === "wait" && result.waiting_plan?.reconsider_when) {
@@ -409,7 +414,7 @@ function renderDecision(result) {
   scores.forEach((score, index) => {
     const card = node("div", "score-card");
     const label = node("div", "score-label");
-    label.append(node("span", "", score.name || score.action || `Action ${index + 1}`), node("span", "score-value", formatNumber(utilities[index], 3)));
+    label.append(node("span", "", score.name || score.action || `Choice ${index + 1}`), node("span", "score-value", formatNumber(utilities[index], 3)));
     card.append(label);
     const track = node("div", "score-track");
     const fill = node("span");
@@ -426,22 +431,22 @@ function renderDecision(result) {
 
 function renderAudit(result) {
   const container = $("audit-result");
-  container.replaceChildren(node("div", "result-heading", "AUDIT VERDICT"));
+  container.replaceChildren(node("div", "result-heading", "REVIEW RESULT"));
   const card = node("div", "recommendation-card");
   const graphDigest = workspace?.relationship_digest || workspace?.relationships?.digest;
   const stale = Boolean(graphDigest && result.relationship_digest !== graphDigest);
-  card.append(node("div", "result-kicker", stale ? "Previous verdict" : result.allowed ? "Claim supported" : "Approval withheld"), node("h3", "", stale ? "Review relationship changes" : titleCase(result.verdict || (result.allowed ? "Allowed" : "Review required"))));
-  if (stale) card.append(node("p", "", "The relationship state has changed since this verdict. Review the claim again before saving an artifact."));
+  card.append(node("div", "result-kicker", stale ? "Previous verdict" : result.allowed ? "Claim supported" : "Approval withheld"), node("h3", "", stale ? "Review changed connections" : titleCase(result.verdict || (result.allowed ? "Allowed" : "Review required"))));
+  if (stale) card.append(node("p", "", "Connections have changed since this review. Review the claim again before saving a document."));
   const reasons = Array.isArray(result.reasons) ? result.reasons : result.reasons ? [result.reasons] : [];
   reasons.forEach((reason) => card.append(node("p", "", scalar(reason))));
   container.append(card);
-  addJsonDetails(container, result, "Inspect evidence and verdict");
+  addJsonDetails(container, result, "Inspect sources and review result");
   auditVerdict = result;
   updateArtifactGate();
 }
 
 async function artifactClaim(name, content) {
-  if (!window.crypto?.subtle) throw new Error("Artifact content verification requires Web Crypto. Open Dao on localhost or HTTPS.");
+  if (!window.crypto?.subtle) throw new Error("Document verification requires Web Crypto. Open Dao on localhost or HTTPS.");
   const digest = await window.crypto.subtle.digest("SHA-256", new TextEncoder().encode(content.trim()));
   const hex = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
   return `artifact:${name.trim()}:${hex}`;
@@ -458,7 +463,7 @@ async function updateArtifactGate() {
   const allowed = Boolean(name && content && auditVerdict?.allowed && auditVerdict.verdict_id && auditVerdict.claim === claim && !auditVerdict.action && currentGraph);
   $("artifact-save").dataset.intrinsicDisabled = String(!allowed);
   $("artifact-save").disabled = busy || !allowed || !ready;
-  $("artifact-status").textContent = allowed ? "An allowed verdict matches this artifact’s name, content, and relationship state." : auditVerdict ? "Saving requires a current verdict for this exact name, content, and relationship state, without an action scope." : "Prepare and review this artifact’s claim before saving.";
+  $("artifact-status").textContent = allowed ? "An allowed verdict matches this document’s name, content, and connection state." : auditVerdict ? "Saving requires a current verdict for this exact name, content, and connection state, without an action scope." : "Prepare and review this document’s claim before saving.";
 }
 
 async function submitChat() {
@@ -545,7 +550,13 @@ function setToolsOpen(open) {
   $("app-shell").classList.toggle("tools-open", open);
   $("workspace-tools").hidden = !open;
   $("tools-toggle").setAttribute("aria-expanded", String(open));
-  $("tools-toggle").textContent = open ? wideLayout.matches ? "Hide tools" : "Back to chat" : "Tools";
+  const label = open ? wideLayout.matches ? "Hide tools" : "Back to writing" : "Tools";
+  $("tools-toggle").setAttribute("aria-label", label);
+  if (open && !wideLayout.matches) {
+    const shortLabel = node("span", "utility-short", "← Write");
+    shortLabel.setAttribute("aria-hidden", "true");
+    $("tools-toggle").replaceChildren(node("span", "utility-label", label), shortLabel);
+  } else $("tools-toggle").textContent = label;
   if (!open && focusedInTools) $("tools-toggle").focus();
 }
 
@@ -601,7 +612,7 @@ async function createBranch() {
     await api("/api/branches", { name, from_commit: idOf(workspace.head) });
     await refresh(name);
     $("branch-name").value = "";
-    notify(`Branch created: ${name}.`);
+    notify(`Draft created: ${name}.`);
   });
 }
 $("create-branch").addEventListener("click", createBranch);
@@ -619,15 +630,15 @@ function renderDecisionPreview() {
   container.replaceChildren();
   let problem;
   try { problem = JSON.parse($("decision-input").value); } catch {
-    container.append(node("p", "field-help", "The model needs valid JSON before it can be evaluated."));
+    container.append(node("p", "field-help", "The comparison model needs valid JSON before it can be evaluated."));
     return;
   }
   const actions = Array.isArray(problem?.actions) ? problem.actions : [];
   const scenarios = Array.isArray(problem?.scenarios) ? problem.scenarios : [];
-  container.append(node("div", "section-label", `${actions.length} actions · ${scenarios.length} scenarios`));
+  container.append(node("div", "section-label", `${actions.length} choices · ${scenarios.length} outcomes`));
   const list = node("ul", "model-actions");
-  actions.forEach((action) => list.append(node("li", "", action?.name || "Unnamed action")));
-  container.append(list, node("p", "field-help", "Also considers waiting for information and abstaining. Edit the model to explore your own decision."));
+  actions.forEach((action) => list.append(node("li", "", action?.name || "Unnamed choice")));
+  container.append(list, node("p", "field-help", "Also considers gathering information and leaving the choice open. Edit the illustrative assumptions for your story."));
 }
 $("decision-input").addEventListener("input", () => {
   renderDecisionPreview();
@@ -635,21 +646,21 @@ $("decision-input").addEventListener("input", () => {
 });
 $("decision-run").addEventListener("click", () => mutate(async () => {
   let problem;
-  try { problem = JSON.parse($("decision-input").value); } catch { throw new Error("The decision model needs valid JSON. Check its commas and quotation marks."); }
+  try { problem = JSON.parse($("decision-input").value); } catch { throw new Error("The comparison model needs valid JSON. Check its commas and quotation marks."); }
   const response = await api("/api/decision", { branch, expected_head: idOf(workspace.head), problem });
   renderDecision(response.result);
   await refresh();
 }));
 
 const relationshipExamples = {
-  action: { operation: "node", node: { id: "launch", label: "Full launch", kind: "action", importance: 1 } },
-  goal: { operation: "node", node: { id: "customer-trust", label: "Protect customer trust", kind: "goal", importance: 20 } },
-  relation: { operation: "relation", relation: { id: "launch-trust", source: "launch", target: "customer-trust", kind: "effect", weight: 20, severe: true, actions: ["Full launch"] } },
-  assess: { operation: "assess", relation_id: "launch-trust", belief: { positive: 0.1, neutral: 0.1, negative: 0.8 }, source: "Example review", content: "A launch before the reliability issue is fixed may undermine customer trust. Replace this with your evidence." },
-  unknown: { operation: "assess", relation_id: "launch-trust", belief: null, source: "Example uncertainty review", content: "The prior assessment is now uncertain. This does not resolve the conflict." },
-  observe: { operation: "observe", relation_id: "launch-trust", action: "Reversible pilot", context: "Example controlled pilot", before: "negative", after: "positive", source: "Example pilot report", content: "Record a reported transition with its action and context. This example does not establish causation." },
-  reassess: { operation: "assess", relation_id: "launch-trust", belief: { positive: 0.9, neutral: 0.1, negative: 0 }, source: "Example follow-up review", content: "Replace with evidence supporting zero negative probability. Reassessment alone leaves the conflict open." },
-  resolve: { operation: "resolve", relation_id: "launch-trust", evidence: [
+  action: { operation: "node", node: { id: "reveal", label: "Commit to the ending", kind: "action", importance: 1 } },
+  goal: { operation: "node", node: { id: "mara-trust", label: "Preserve Mara’s trust in Ivo", kind: "goal", importance: 20 } },
+  relation: { operation: "relation", relation: { id: "reveal-trust", source: "reveal", target: "mara-trust", kind: "effect", weight: 20, severe: true, actions: ["Commit to the ending"] } },
+  assess: { operation: "assess", relation_id: "reveal-trust", belief: { positive: 0.1, neutral: 0.1, negative: 0.8 }, source: "Example review", content: "An unprepared reveal may make Mara’s continued trust in Ivo hard to believe. Replace this with your own notes." },
+  unknown: { operation: "assess", relation_id: "reveal-trust", belief: null, source: "Example uncertainty review", content: "The prior assessment is now uncertain. This does not resolve the conflict." },
+  observe: { operation: "observe", relation_id: "reveal-trust", action: "Try an alternate scene", context: "Example scene workshop", before: "negative", after: "positive", source: "Example reader note", content: "Record a reported transition with its action and context. This example does not establish causation." },
+  reassess: { operation: "assess", relation_id: "reveal-trust", belief: { positive: 0.9, neutral: 0.1, negative: 0 }, source: "Example follow-up review", content: "Replace with evidence supporting zero negative probability. Reassessment alone leaves the conflict open." },
+  resolve: { operation: "resolve", relation_id: "reveal-trust", evidence: [
     { source: "Example operator review", content: "Replace with evidence that the original concern is resolved.", stance: "support", reliability: 0.9 },
     { source: "Example outcome report", content: "Replace with a distinct reviewed source supporting resolution.", stance: "support", reliability: 0.9 }
   ] }
@@ -657,23 +668,23 @@ const relationshipExamples = {
 document.querySelectorAll("[data-relationship-example]").forEach((button) => {
   button.addEventListener("click", () => {
     $("relationship-input").value = JSON.stringify(relationshipExamples[button.dataset.relationshipExample], null, 2);
-    $("relationship-status").textContent = "Example loaded. Replace the placeholder evidence before saving.";
+    $("relationship-status").textContent = "Example loaded. Replace the placeholder sources before saving.";
   });
 });
 $("relationship-refresh").addEventListener("click", () => mutate(async () => {
   await refresh();
-  $("relationship-status").textContent = "Relationships refreshed for the current branch.";
+  $("relationship-status").textContent = "Connections refreshed for the current draft.";
 }));
 $("relationship-save").addEventListener("click", () => mutate(async () => {
   let operation;
-  try { operation = JSON.parse($("relationship-input").value); } catch { throw new Error("The relationship operation needs valid JSON."); }
-  if (!operation || Array.isArray(operation) || typeof operation !== "object") throw new Error("A relationship operation must be a JSON object.");
-  if (Object.hasOwn(operation, "branch") || Object.hasOwn(operation, "expected_head")) throw new Error("The operation cannot select a branch or override the expected head.");
+  try { operation = JSON.parse($("relationship-input").value); } catch { throw new Error("The connection operation needs valid JSON."); }
+  if (!operation || Array.isArray(operation) || typeof operation !== "object") throw new Error("A connection operation must be a JSON object.");
+  if (Object.hasOwn(operation, "branch") || Object.hasOwn(operation, "expected_head")) throw new Error("The operation cannot select a draft or override its current version.");
   const response = await api("/api/relationships", { ...operation, branch, expected_head: idOf(workspace.head) });
   resetVerdict();
   await refresh();
-  $("relationship-status").textContent = `Operation saved at ${idOf(response.head).slice(0, 8)}. Review current conflicts before acting.`;
-  notify("Relationship state saved in a new revision.");
+  $("relationship-status").textContent = `Operation saved at ${idOf(response.head).slice(0, 8)}. Review current conflicts before choosing a direction.`;
+  notify("Connections saved in a new version.");
 }));
 
 $("add-evidence").addEventListener("click", () => addEvidence());
@@ -697,32 +708,32 @@ $("artifact-content").addEventListener("input", updateArtifactGate);
 $("artifact-prepare").addEventListener("click", () => mutate(async () => {
   const name = $("artifact-name").value.trim();
   const content = $("artifact-content").value.trim();
-  if (!name || !content) throw new Error("Give the artifact a name and content before preparing its audit.");
+  if (!name || !content) throw new Error("Give the document a name and content before preparing its review.");
   $("audit-claim").value = await artifactClaim(name, content);
   resetVerdict();
   $("audit-result").replaceChildren();
   $("audit-claim").scrollIntoView({ behavior: "smooth", block: "center" });
-  notify("Artifact claim prepared. Review its evidence before saving.");
+  notify("Document claim prepared. Review its supporting sources before saving.");
 }));
 $("artifact-save").addEventListener("click", () => mutate(async () => {
-  if (!auditVerdict?.allowed) throw new Error("An allowed audit verdict is required.");
+  if (!auditVerdict?.allowed) throw new Error("A current allowed review is required.");
   const name = $("artifact-name").value.trim();
   const content = $("artifact-content").value;
-  if (!name || !content.trim()) throw new Error("Give the artifact a name and content.");
-  if (auditVerdict.claim !== await artifactClaim(name, content)) throw new Error("The artifact changed after the audit. Prepare and review a claim for its updated content.");
+  if (!name || !content.trim()) throw new Error("Give the document a name and content.");
+  if (auditVerdict.claim !== await artifactClaim(name, content)) throw new Error("The document changed after the review. Prepare and review a claim for its updated content.");
   await api("/api/artifact", { branch, expected_head: idOf(workspace.head), name, content, verdict_id: auditVerdict.verdict_id });
   await refresh();
-  notify(`Saved ${name} with its audit verdict.`);
+  notify(`Saved ${name} with its review result.`);
 }));
 $("memory-save").addEventListener("click", () => mutate(async () => {
   const key = $("memory-key").value.trim();
   const value = $("memory-value").value.trim();
-  if (!key || !value) throw new Error("Add a key and a value for this memory.");
+  if (!key || !value) throw new Error("Add a name and text for this story note.");
   await api("/api/memory", { branch, expected_head: idOf(workspace.head), key, value });
   await refresh();
   $("memory-key").value = "";
   $("memory-value").value = "";
-  notify("Memory saved in a new revision.");
+  notify("Story note saved in a new version.");
 }));
 $("verify-button").addEventListener("click", async () => {
   $("verify-button").disabled = true;
@@ -730,7 +741,7 @@ $("verify-button").addEventListener("click", async () => {
     const result = await api("/api/verify");
     const failed = result.ok === false || result.valid === false || result.integrity === false || (Array.isArray(result.errors) && result.errors.length > 0);
     if (failed) { showError(new Error(`Integrity verification found an issue: ${JSON.stringify(result)}`)); }
-    else { notify(`Integrity verified${result.commits !== undefined ? ` · ${scalar(result.commits)} revisions` : ""}.`); }
+    else { notify(`Integrity verified${result.commits !== undefined ? ` · ${scalar(result.commits)} versions` : ""}.`); }
   } catch (error) { showError(error); } finally { $("verify-button").disabled = false; }
 });
 $("export-button").addEventListener("click", async () => {
@@ -746,15 +757,15 @@ $("export-button").addEventListener("click", async () => {
     link.download = `dao-${branch.replace(/[^a-zA-Z0-9_-]/g, "_")}.json`;
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    notify("Workspace exported with its versioned state.");
+    notify("Story exported with its saved versions.");
   } catch (error) { showError(error); } finally { $("export-button").disabled = busy || !ready; }
 });
 
 async function initialize() {
   setBusy(false);
   resetVerdict();
-  addEvidence({ source: "Example project brief", content: "The plan is a small reversible experiment with a defined rollback step.", stance: "support", reliability: 0.85 });
-  addEvidence({ source: "Example review note", content: "The proposed artifact is a draft plan for internal review; no external action is authorized by this evidence.", stance: "support", reliability: 0.8 });
+  addEvidence({ source: "Example scene outline", content: "In the scene outline, Mara finds a forged letter and tells Ivo before the final scene.", stance: "support", reliability: 0.85 });
+  addEvidence({ source: "Example manuscript excerpt", content: "Mara says, I know the letter is a forgery, before she enters the final confrontation.", stance: "support", reliability: 0.8 });
   try {
     workspace = await api("/api/bootstrap");
     csrf = workspace.csrf || "";
@@ -766,13 +777,13 @@ async function initialize() {
       $("decision-input").value = JSON.stringify(example.problem || example, null, 2);
       renderDecisionPreview();
     } catch (error) {
-      $("decision-preview").replaceChildren(node("p", "field-help", "Example unavailable. Enter your decision model below."));
+      $("decision-preview").replaceChildren(node("p", "field-help", "Example unavailable. Enter your comparison model below."));
       $("decision-editor").open = true;
-      $("decision-help").textContent = `Example could not be loaded: ${error.message}. You can still enter a decision model.`;
+      $("decision-help").textContent = `Example could not be loaded: ${error.message}. You can still enter a comparison model.`;
     }
   } catch (error) {
     $("provider-badge").textContent = "Connection unavailable";
-    $("provider-description").textContent = "Workspace unavailable. Check that Dao is running, then reload.";
+    $("provider-description").textContent = "Writing room unavailable. Check that Dao is running, then reload.";
     $("branch-select").replaceChildren(node("option", "", "Unavailable"));
     $("history-list").replaceChildren(node("li", "empty-copy", "Refresh this page after the server is available."));
     showError(error);

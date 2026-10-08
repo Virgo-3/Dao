@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#e8edf3">
-  <title>Dao · Room to change your mind</title>
+  <title>Dao · Writing room</title>
   <link rel="stylesheet" href="/static/style.css">
   <link rel="icon" href="/static/dao.svg" type="image/svg+xml">
   <link rel="alternate icon" href="/static/dao.ico" type="image/vnd.microsoft.icon">
@@ -23,70 +23,70 @@
   <div id="app-shell" class="app-shell tools-open">
     <header class="app-header">
       <a class="brand" href="/" aria-label="Dao home"><img class="dao-mark" src="/static/dao.svg" alt="" aria-hidden="true"><span>Dao</span></a>
-      <div class="header-caption">Room to change your mind.</div>
+      <div class="header-caption">Room for another draft.</div>
       <div class="header-actions">
         <span id="provider-badge" class="badge"><span class="status-dot"></span>Connecting</span>
-        <button id="verify-button" class="quiet-button" title="Check saved history for inconsistencies" aria-label="Verify history"><span class="utility-label">Verify history</span><span class="utility-short" aria-hidden="true">Verify</span></button>
-        <button id="export-button" class="quiet-button" disabled>Export</button>
+        <button id="verify-button" class="quiet-button" title="Check saved versions for inconsistencies" aria-label="Verify versions"><span class="utility-label">Verify versions</span><span class="utility-short" aria-hidden="true">Verify</span></button>
+        <button id="export-button" class="quiet-button" aria-label="Export story" disabled><span class="utility-label">Export story</span><span class="utility-short" aria-hidden="true">Export</span></button>
         <button id="tools-toggle" class="secondary-button tools-toggle" aria-controls="workspace-tools" aria-expanded="true">Hide tools</button>
       </div>
     </header>
     <div id="global-alert" class="global-alert" role="alert" hidden><span id="alert-message"></span><button id="alert-close" class="icon-button" aria-label="Dismiss error">×</button></div>
 
-    <aside class="sidebar" aria-label="Versioned workspace">
-      <div class="sidebar-top"><span class="eyebrow">Workspace</span></div>
-      <label class="field-label" for="branch-select">Current branch</label>
-      <div class="select-wrap"><select id="branch-select" aria-label="Current branch" disabled><option>Loading…</option></select><span aria-hidden="true">⌄</span></div>
-      <div class="branch-creator"><input id="branch-name" maxlength="64" placeholder="Name your branch" aria-label="New branch name" data-mutation><button id="create-branch" class="secondary-button" title="Create a branch from the current checkpoint" data-mutation>New branch</button></div>
-      <p class="field-help">Explore another approach from this checkpoint.</p>
+    <aside class="sidebar" aria-label="Story drafts">
+      <div class="sidebar-top"><span class="eyebrow">Story</span></div>
+      <label class="field-label" for="branch-select">Current draft</label>
+      <div class="select-wrap"><select id="branch-select" aria-label="Current draft" disabled><option>Loading…</option></select><span aria-hidden="true">⌄</span></div>
+      <div class="branch-creator"><input id="branch-name" maxlength="64" placeholder="Name your draft" aria-label="New draft name" data-mutation><button id="create-branch" class="secondary-button" title="Create another draft from this saved version" data-mutation>New draft</button></div>
+      <p class="field-help">Explore another direction from this version.</p>
 
       <details id="history-details" class="history-section" open>
-        <summary class="sidebar-section-title">History <span id="history-count" class="count">0</span></summary>
-        <ol id="history-list" class="history-list"><li class="muted loading-copy">Loading history…</li></ol>
+        <summary class="sidebar-section-title">Versions <span id="history-count" class="count">0</span></summary>
+        <ol id="history-list" class="history-list"><li class="muted loading-copy">Loading versions…</li></ol>
       </details>
-      <div class="sidebar-footer"><p>Restoring adds a revision.<br>Your history stays saved.</p></div>
+      <div class="sidebar-footer"><p>Restoring adds a version.<br>Your earlier drafts stay saved.</p></div>
     </aside>
 
     <main class="conversation-panel">
-      <div class="conversation-heading"><div><span class="eyebrow">Conversation</span><h1>Think it through<span class="soft-period">.</span></h1></div><span id="active-branch" class="branch-badge">⑂ main</span></div>
-      <p id="provider-description" class="mode-note">Connecting to your workspace…</p>
-      <div id="messages" class="messages" aria-label="Conversation" aria-live="polite" aria-relevant="additions">
-        <section class="empty-state"><img class="empty-emblem" src="/static/dao.svg" alt="" aria-hidden="true"><h2>Room to think.</h2><p>Ask a question, explore a decision,<br>or start with one of the prompts below.</p></section>
+      <div class="conversation-heading"><div><span class="eyebrow">Writing room</span><h1>Develop your story<span class="soft-period">.</span></h1></div><span id="active-branch" class="branch-badge">⑂ main</span></div>
+      <p id="provider-description" class="mode-note">Opening your writing room…</p>
+      <div id="messages" class="messages" aria-label="Writing conversation" aria-live="polite" aria-relevant="additions">
+        <section class="empty-state"><img class="empty-emblem" src="/static/dao.svg" alt="" aria-hidden="true"><h2>Where next?</h2><p>Bring a scene, a character, or an unfinished idea.<br>Explore where the story could go.</p></section>
       </div>
-      <div id="starter-prompts" class="starter-prompts"><button class="prompt-chip" data-prompt="Help me think through a decision where waiting might be valuable." data-mutation><span>◷</span> Is it time to act?</button><button class="prompt-chip" data-prompt="Help me create a plan that keeps my options open." data-mutation><span>⑂</span> Keep my options open</button></div>
-      <form id="chat-form" class="composer"><label class="sr-only" for="message-input">Your message</label><textarea id="message-input" rows="2" maxlength="8192" placeholder="What’s on your mind?" data-mutation></textarea><div class="composer-bottom"><span id="composer-hint"><span class="composer-spark" aria-hidden="true">✧</span> Messages are saved in this branch.</span><button id="send-button" class="send-button" type="submit" aria-label="Send message" data-mutation><span id="send-label">Send</span><span aria-hidden="true">↑</span></button></div></form>
-      <footer class="conversation-footer"><span id="revision-label">Revision history is saved</span><span>Enter to send · Shift + Enter for a new line</span></footer>
+      <div id="starter-prompts" class="starter-prompts"><button class="prompt-chip" data-prompt="Help me develop a scene by exploring its character goals, conflict, and possible turns." data-mutation><span>◷</span> Explore a scene</button><button class="prompt-chip" data-prompt="Help me explore two alternate endings, keeping the characters consistent and unresolved questions visible." data-mutation><span>⑂</span> Try another ending</button></div>
+      <form id="chat-form" class="composer"><label class="sr-only" for="message-input">Your message</label><textarea id="message-input" rows="2" maxlength="8192" placeholder="What happens next?" data-mutation></textarea><div class="composer-bottom"><span id="composer-hint"><span class="composer-spark" aria-hidden="true">✧</span> This conversation is saved in your draft.</span><button id="send-button" class="send-button" type="submit" aria-label="Send message" data-mutation><span id="send-label">Send</span><span aria-hidden="true">↑</span></button></div></form>
+      <footer class="conversation-footer"><span id="revision-label">Your versions are saved</span><span>Enter to send · Shift + Enter for a new line</span></footer>
     </main>
 
-    <aside id="workspace-tools" class="inspector" aria-label="Decision and evidence tools">
-      <div class="inspector-heading"><span class="eyebrow">Workspace tools</span></div>
-      <div class="tabs" role="tablist" aria-label="Workspace tools"><button id="decision-tab" role="tab" aria-controls="decision-panel" aria-selected="true" tabindex="0" data-panel="decision-panel">Decision</button><button id="relationships-tab" role="tab" aria-controls="relationships-panel" aria-selected="false" tabindex="-1" data-panel="relationships-panel">Relationships</button><button id="audit-tab" role="tab" aria-controls="audit-panel" aria-selected="false" tabindex="-1" data-panel="audit-panel">Audit</button><button id="ledger-tab" role="tab" aria-controls="ledger-panel" aria-selected="false" tabindex="-1" data-panel="ledger-panel">Ledger</button></div>
+    <aside id="workspace-tools" class="inspector" aria-label="Story development tools">
+      <div class="inspector-heading"><span class="eyebrow">Story tools</span></div>
+      <div class="tabs" role="tablist" aria-label="Story tools"><button id="decision-tab" role="tab" aria-controls="decision-panel" aria-selected="true" tabindex="0" data-panel="decision-panel">Explore</button><button id="relationships-tab" role="tab" aria-controls="relationships-panel" aria-selected="false" tabindex="-1" data-panel="relationships-panel">Connections</button><button id="audit-tab" role="tab" aria-controls="audit-panel" aria-selected="false" tabindex="-1" data-panel="audit-panel">Review</button><button id="ledger-tab" role="tab" aria-controls="ledger-panel" aria-selected="false" tabindex="-1" data-panel="ledger-panel">Activity</button></div>
       <section id="decision-panel" role="tabpanel" aria-labelledby="decision-tab" class="tool-panel">
-        <div class="tool-intro"><span class="tool-glyph" aria-hidden="true">⑂</span><h2>Act, wait, or abstain.</h2><p>Compare possible outcomes, uncertainty, costs, and reversibility.</p></div>
-        <div id="decision-preview" class="model-preview" aria-live="polite"><p class="empty-copy">Loading an example decision…</p></div>
+        <div class="tool-intro"><span class="tool-glyph" aria-hidden="true">⑂</span><h2>Explore the possibilities.</h2><p>Compare story directions with explicit assumptions. These calculations do not score literary quality.</p></div>
+        <div id="decision-preview" class="model-preview" aria-live="polite"><p class="empty-copy">Loading an example story choice…</p></div>
         <details id="decision-editor" class="editor-details">
-          <summary>Edit decision model <span class="summary-note">JSON</span></summary>
-          <div class="section-label"><label for="decision-input">Scenario model</label><button id="decision-example" class="text-button" data-mutation>Reset to example</button></div>
-          <textarea id="decision-input" class="code-input" rows="13" spellcheck="false" aria-describedby="decision-help" data-mutation>{}</textarea><p id="decision-help" class="field-help">Set outcomes, probabilities, payoffs, and costs. The example compares a launch with a reversible pilot.</p>
+          <summary>Edit comparison model <span class="summary-note">JSON</span></summary>
+          <div class="section-label"><label for="decision-input">Possible outcomes</label><button id="decision-example" class="text-button" data-mutation>Reset to example</button></div>
+          <textarea id="decision-input" class="code-input" rows="13" spellcheck="false" aria-describedby="decision-help" data-mutation>{}</textarea><p id="decision-help" class="field-help">Set outcomes, probabilities, payoffs, and costs. The example compares committing to an ending with trying an alternate scene. The numbers are illustrative.</p>
         </details>
-        <button id="decision-run" class="primary-button full-width" data-mutation>Evaluate decision <span aria-hidden="true">→</span></button>
+        <button id="decision-run" class="primary-button full-width" data-mutation>Compare directions <span aria-hidden="true">→</span></button>
         <div id="decision-result" class="result-area" aria-live="polite"></div>
-        <div class="principle"><span aria-hidden="true">◷</span><p><strong>Waiting can have value.</strong><br>New information can be worth more than acting immediately.</p></div>
+        <div class="principle"><span aria-hidden="true">◷</span><p><strong>Leave room to discover.</strong><br>A scene experiment or reader response may help before you commit.</p></div>
       </section>
       <section id="relationships-panel" role="tabpanel" aria-labelledby="relationships-tab" class="tool-panel" hidden>
-        <div class="tool-intro"><span class="tool-glyph" aria-hidden="true">↔</span><h2>Review relationships.</h2><p>Record beliefs and reported observations. Review coherence, coverage, and unresolved conflicts together.</p></div>
+        <div class="tool-intro"><span class="tool-glyph" aria-hidden="true">↔</span><h2>Connect the story.</h2><p>Connect characters, goals, and story choices. Record your assessments and supporting notes, then inspect the unresolved conflicts.</p></div>
         <div id="relationship-summary" class="relationship-summary" aria-live="polite"></div>
-        <p class="field-help">Weights and action scope are fixed in each relation. Changing a belief to positive, neutral, or unknown leaves its conflict open.</p>
+        <p class="field-help">Connection weights and affected choices stay fixed once saved. A changed assessment leaves an existing conflict open until reviewed. These metrics are not a continuity score.</p>
         <div class="section-label"><span>Unresolved conflicts</span><span id="conflict-count" class="count">0</span></div>
         <div id="relationship-conflicts" class="event-list"></div>
-        <details class="relationship-details"><summary>Inspect graph and transition estimates</summary><div id="relationship-details"></div></details>
-        <button id="relationship-refresh" class="text-button" data-mutation>Refresh relationships</button>
+        <details class="relationship-details"><summary>Inspect connection records and estimates</summary><div id="relationship-details"></div></details>
+        <button id="relationship-refresh" class="text-button" data-mutation>Refresh connections</button>
         <details class="editor-details">
-        <summary>Add or update a relationship <span class="summary-note">JSON</span></summary>
-        <div class="section-label"><label for="relationship-input">Relationship operation</label></div>
-        <p id="relationship-help" class="field-help">Save one JSON operation at a time. Examples form a sequence: add the two nodes, define the relation, then assess or observe it. The example sources are placeholders; replace them with your evidence.</p>
+        <summary>Add or update a connection <span class="summary-note">JSON</span></summary>
+        <div class="section-label"><label for="relationship-input">Connection operation</label></div>
+        <p id="relationship-help" class="field-help">Save one JSON operation at a time: add a story choice and a character goal, connect them, then assess or record an observation. Replace example sources with your own notes or excerpts.</p>
         <div class="relationship-examples" aria-label="Relationship operation examples">
-          <button class="text-button" data-relationship-example="action" data-mutation>1. Action</button><button class="text-button" data-relationship-example="goal" data-mutation>2. Goal</button><button class="text-button" data-relationship-example="relation" data-mutation>3. Relation</button><button class="text-button" data-relationship-example="assess" data-mutation>4. Assess</button><button class="text-button" data-relationship-example="unknown" data-mutation>Set unknown</button><button class="text-button" data-relationship-example="observe" data-mutation>Record observation</button><button class="text-button" data-relationship-example="reassess" data-mutation>Reassess</button><button class="text-button" data-relationship-example="resolve" data-mutation>Resolve conflict</button>
+          <button class="text-button" data-relationship-example="action" data-mutation>1. Choice</button><button class="text-button" data-relationship-example="goal" data-mutation>2. Goal</button><button class="text-button" data-relationship-example="relation" data-mutation>3. Relation</button><button class="text-button" data-relationship-example="assess" data-mutation>4. Assess</button><button class="text-button" data-relationship-example="unknown" data-mutation>Set unknown</button><button class="text-button" data-relationship-example="observe" data-mutation>Record observation</button><button class="text-button" data-relationship-example="reassess" data-mutation>Reassess</button><button class="text-button" data-relationship-example="resolve" data-mutation>Resolve conflict</button>
         </div>
         <textarea id="relationship-input" class="code-input" rows="13" spellcheck="false" aria-describedby="relationship-help" data-mutation>{}</textarea>
         <button id="relationship-save" class="primary-button full-width" data-mutation>Save operation <span aria-hidden="true">→</span></button>
@@ -94,21 +94,21 @@
         <p id="relationship-status" class="field-help" role="status"></p>
       </section>
       <section id="audit-panel" role="tabpanel" aria-labelledby="audit-tab" class="tool-panel" hidden>
-        <div class="tool-intro"><span class="tool-glyph" aria-hidden="true">◈</span><h2>Review evidence.</h2><p>An audit reviews the evidence for a claim and records a verdict. Saving an artifact also requires a current matching verdict and no unresolved severe conflicts.</p></div>
-        <label class="field-label" for="audit-claim">Claim to review</label><input id="audit-claim" class="wide-input" value="This draft plan is ready for internal review." maxlength="4000" data-mutation>
-        <div class="section-label evidence-heading"><span>Supplied evidence</span><button id="add-evidence" class="text-button" data-mutation>Add evidence</button></div><p class="field-help">Replace the example evidence with sources relevant to your claim, including contradictions.</p>
+        <div class="tool-intro"><span class="tool-glyph" aria-hidden="true">◈</span><h2>Review the details.</h2><p>Review a story claim against supplied notes and excerpts. The fixed evidence policy does not decide canon or literary quality. Saving a manuscript also requires a current matching review and no unresolved severe conflicts.</p></div>
+        <label class="field-label" for="audit-claim">Story claim to review</label><input id="audit-claim" class="wide-input" value="Mara knows the letter was forged before the final scene." maxlength="4000" data-mutation>
+        <div class="section-label evidence-heading"><span>Notes and excerpts</span><button id="add-evidence" class="text-button" data-mutation>Add source</button></div><p class="field-help">Replace example excerpts with your own sources, including details that contradict the claim. Intentional ambiguity belongs in your notes; a review does not resolve it for you.</p>
         <div id="evidence-list" class="evidence-list"></div>
         <button id="audit-run" class="primary-button full-width" data-mutation>Review claim <span aria-hidden="true">→</span></button><div id="audit-result" class="result-area" aria-live="polite"></div>
-        <details class="artifact-section"><summary>Save an artifact</summary><p class="field-help">An artifact is content saved in Dao. Prepare and review a claim for its exact name, content, and current relationship state.</p><label class="field-label" for="artifact-name">Artifact name</label><input id="artifact-name" class="wide-input" value="plan.md" data-mutation><label class="field-label spaced" for="artifact-content">Content</label><textarea id="artifact-content" rows="4" placeholder="Your reviewed plan…" data-mutation></textarea><button id="artifact-prepare" class="secondary-button full-width" data-mutation>Prepare artifact claim</button><button id="artifact-save" class="secondary-button full-width" data-mutation>Save with audit verdict</button><p id="artifact-status" class="field-help" role="status"></p></details>
+        <details class="artifact-section"><summary>Save a manuscript</summary><p class="field-help">Save a manuscript or story note in Dao. Prepare a review for its exact name, content, and current connections, then supply evidence for that prepared claim.</p><label class="field-label" for="artifact-name">Document name</label><input id="artifact-name" class="wide-input" value="scene.md" data-mutation><label class="field-label spaced" for="artifact-content">Content</label><textarea id="artifact-content" rows="4" placeholder="Your scene or story notes…" data-mutation></textarea><button id="artifact-prepare" class="secondary-button full-width" data-mutation>Prepare document review</button><button id="artifact-save" class="secondary-button full-width" data-mutation>Save reviewed document</button><p id="artifact-status" class="field-help" role="status"></p></details>
       </section>
       <section id="ledger-panel" role="tabpanel" aria-labelledby="ledger-tab" class="tool-panel" hidden>
-        <div class="tool-intro"><span class="tool-glyph" aria-hidden="true">≋</span><h2>Review usage and history.</h2><p>Usage covers all branches. Saved memory, artifacts, and activity below belong to the current branch.</p></div>
+        <div class="tool-intro"><span class="tool-glyph" aria-hidden="true">≋</span><h2>Notes and activity.</h2><p>Usage covers every draft. Story notes, saved documents, and activity below belong to this draft.</p></div>
         <div id="usage-totals" class="usage-totals"></div><div id="budget-display" class="budget-display"></div><div class="section-label"><span>Usage entries</span><span id="usage-count" class="count">0</span></div><div id="usage-entries" class="ledger-entries"></div>
-        <details class="working-memory" open><summary>Saved memory</summary><p class="field-help">Notes saved in this branch and its revision history.</p><pre id="memory-preview" class="json-preview">{}</pre><label class="field-label" for="memory-key">Key</label><input id="memory-key" class="wide-input" placeholder="e.g. objective" maxlength="128" data-mutation><label class="field-label spaced" for="memory-value">Value</label><textarea id="memory-value" rows="2" placeholder="What should this branch remember?" data-mutation></textarea><button id="memory-save" class="secondary-button full-width" data-mutation>Save memory</button></details>
-        <details class="event-trail"><summary>Audit and activity history</summary><div id="event-list" class="event-list"></div></details>
-        <details class="saved-artifacts"><summary>Saved artifacts</summary><div id="artifact-list" class="event-list"></div></details>
+        <details class="working-memory" open><summary>Story notes</summary><p class="field-help">Notes saved with this draft and its versions. Label established details, proposed ideas, and open questions in your own words.</p><pre id="memory-preview" class="json-preview">{}</pre><label class="field-label" for="memory-key">Note name</label><input id="memory-key" class="wide-input" placeholder="e.g. protagonist_motive" maxlength="128" data-mutation><label class="field-label spaced" for="memory-value">Note</label><textarea id="memory-value" rows="2" placeholder="What should this draft remember?" data-mutation></textarea><button id="memory-save" class="secondary-button full-width" data-mutation>Save note</button></details>
+        <details class="event-trail"><summary>Reviews and writing activity</summary><div id="event-list" class="event-list"></div></details>
+        <details class="saved-artifacts"><summary>Manuscripts and notes</summary><div id="artifact-list" class="event-list"></div></details>
       </section>
-      <footer class="inspector-footer">Recommendations depend on the assumptions you supply.</footer>
+      <footer class="inspector-footer">Explore freely. Comparisons depend on your assumptions.</footer>
     </aside>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>

@@ -37,18 +37,18 @@ Standalone launches default to `%LOCALAPPDATA%\Dao\state.sqlite3`. The database 
 .\Dao.exe --web --open-browser --db "C:\Users\YourName\Documents\Dao\state.sqlite3"
 ```
 
-Terminal and browser use the same state engine. The default branch is `main`; `--branch NAME` selects an existing branch for a terminal launch. Concurrent views use optimistic head checks; `/head` refreshes a terminal checkpoint after a stale write is rejected.
+Terminal and browser use the same state engine and writing language. The default draft is `main`; `--branch NAME` selects an existing draft for a terminal launch. Concurrent views use optimistic version checks; `/version` refreshes the terminal's viewed version after a stale write is rejected. Earlier command names remain aliases.
 
 | Terminal command | Purpose |
 | --- | --- |
 | `/help`, `/quit` | Show help or leave the terminal |
-| `/branches`, `/branch NAME`, `/switch NAME` | List, fork from the current checkpoint, or switch branches |
-| `/history`, `/restore ID_PREFIX`, `/head` | Inspect revisions, restore a reachable checkpoint as a new revision, or refresh |
-| `/memory`, `/remember KEY=VALUE` | Inspect or save memory in the current branch |
-| `/relationships`, `/conflicts`, `/relate PATH` | Inspect the graph, review unresolved conflicts, or apply an operation JSON file |
-| `/usage`, `/verify` | Inspect lifetime accounting or verify state integrity |
-| `/decide`, `/decision PATH` | Run the example or a JSON decision model |
-| `/audit PATH`, `/artifact PATH` | Review a claim and evidence, or save an artifact with its current matching verdict |
+| `/drafts`, `/draft NAME`, `/switch NAME` | List drafts, create an alternate draft from the current version, or switch drafts |
+| `/versions`, `/restore ID_PREFIX`, `/version` | Inspect versions, restore a reachable version as a new version, or refresh |
+| `/notes`, `/remember KEY=VALUE` | Inspect or save story notes in the current draft |
+| `/connections`, `/conflicts`, `/connect PATH` | Inspect connections, review conflicts, or apply an operation JSON file |
+| `/activity`, `/verify` | Inspect lifetime accounting or verify saved versions |
+| `/explore`, `/explore PATH` | Compare the illustrative story example or a JSON decision model |
+| `/review PATH`, `/manuscript PATH` | Review a claim against sources, or save a document with its current matching review |
 | `/export PATH` | Create a JSON export; existing output files are never overwritten |
 | `/say TEXT` | Send a literal message, including text beginning with `/` |
 

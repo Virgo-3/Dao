@@ -1,8 +1,8 @@
 # Dao
 
-Dao is a local conversational agent with versioned, branchable state. It saves messages, memory, decisions, audits, relationships, artifacts, and usage so you can explore alternatives and revisit earlier checkpoints. Its decision engine compares **act**, **wait**, and **abstain**, accounting for uncertainty, reversibility, and the value of additional information.
+Dao is a local writing room for developing scenes, characters, and alternate story directions. Conversations and story notes stay with each draft, and saved versions let you return to an earlier idea. Explore possibilities, connect story elements, review supplied sources, and save manuscripts with an inspectable history.
 
-Dao starts in an **offline demo** with deterministic replies and no model calls. Live AI is optional. The terminal and browser workspace both support saved state, branches, decisions, and evidence review.
+Dao starts in an **offline demo** with deterministic replies and no model calls. Live AI is optional. The browser and terminal use the same writing interface and saved data. A draft is a branch, a saved version is a revision, story notes are memory, and saved documents are artifacts; existing databases, APIs, and command names remain compatible.
 
 ![Dao browser workspace](docs/workspace.jpg)
 
@@ -10,13 +10,13 @@ Dao starts in an **offline demo** with deterministic replies and no model calls.
 
 | Capability | Purpose |
 | --- | --- |
-| Revisions and branches | Save immutable snapshots and explore alternatives from a selected checkpoint |
-| Restore | Create a new revision from an earlier checkpoint while retaining history and lifetime usage |
-| Decision engine | Compare actions using explicit scenarios, probabilities, payoffs, costs, reversibility, and possible observations |
-| Relationship graph | Separate assessed beliefs from reported observations and track persistent conflicts |
-| Audit as adjudication | Review submitted evidence under an explicit policy and record a verdict |
-| Artifacts | Save named content in the database when the current audit and relationship state permit it |
-| Usage accounting | Reserve tokens before requests and account for usage across branches, restores, and failed calls |
+| Drafts and versions | Save snapshots and explore another story direction from a selected version |
+| Restore | Return to an earlier version while retaining history and lifetime usage |
+| Explore | Compare choices using explicit scenarios, probabilities, costs, and reversibility; the numbers do not score literary quality |
+| Connections | Link story elements, separate assessments from observations, and track unresolved conflicts |
+| Review | Review a claim against supplied notes and excerpts under a fixed evidence policy; the review does not decide canon |
+| Manuscripts and notes | Save named content in the database when its current review and connection state permit it |
+| Activity | Inspect tokens and costs across drafts, restores, and failed calls |
 
 The option value of waiting comes from the supplied observation model: Dao evaluates how new information could change the best available action, then accounts for waiting, observation, and delay costs. Recorded reconsideration conditions do not schedule future work.
 
@@ -54,23 +54,23 @@ The executable starts the terminal and includes Python. To open the browser work
 
 The executable saves state in `%LOCALAPPDATA%\Dao\state.sqlite3` by default. It is unsigned; the release includes `SHA256SUMS` for checksum verification. See the [Windows guide](docs/windows.md) for download, verification, and build instructions. The [Windows workflow](https://github.com/Virgo-3/Dao/actions/workflows/windows-build.yml) provides builds from the latest source.
 
-## Try a branch
+## Try an alternate draft
 
 In the terminal, type a message to converse, then try:
 
 ```text
-/remember approach=Prefer reversible experiments
-/decide
-/branch experiment
-/history
+/remember protagonist_motive=Protect Ivo
+/explore
+/draft alternate-ending
+/versions
 /switch main
-/usage
+/activity
 /verify
 ```
 
-`/branch experiment` creates a branch from the viewed checkpoint. Subsequent changes stay on that branch. `/restore ID_PREFIX` restores a reachable earlier checkpoint as a new revision. `/help` lists commands; `/quit` exits. See the [terminal guide](docs/terminal.md) for decision, relationship, audit, and artifact JSON imports.
+`/draft alternate-ending` creates another draft from the viewed version. Subsequent changes stay in that draft. `/restore ID_PREFIX` restores a reachable earlier version as a new version. `/help` lists commands; `/quit` exits. Earlier command names remain aliases. See the [terminal guide](docs/terminal.md) for comparisons, connections, reviews, and document JSON imports.
 
-In the browser, open **Tools** for **Decision**, **Relationships**, **Audit**, and **Ledger**. Review a decision summary, expand its model to edit the JSON, or inspect beliefs, evidence, usage, memory, and artifacts. On smaller screens, **Back to chat** returns to the conversation.
+In the browser, open **Tools** for **Explore**, **Connections**, **Review**, and **Activity**. Compare story directions, inspect connections and supplied sources, or save story notes. On smaller screens, **Back to writing** (shown as **← Write** on phones) returns to the conversation. Label established details, proposed ideas, and open questions in your notes; Dao does not automatically assign canon status.
 
 ## Enable live AI
 

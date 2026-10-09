@@ -83,7 +83,7 @@ class NarrativeHttpTests(test_server.HttpTests):
     def test_own_interface_and_example_are_served(self):
         page = self.request("GET", "/")[1]
         self.assertIn("Dao Narrative · Writing room".encode(), page)
-        self.assertIn(b"Story claim to review", page)
+        self.assertIn(b'aria-label="Writing conversation"', page)
         self.assertNotIn(b"data-interface", page)
         example = self.request("GET", "/api/decision-example")[1]
         self.assertEqual(example["actions"][1]["name"], "Try an alternate scene")

@@ -154,8 +154,7 @@ function renderConversation() {
     const emblem = daoIcon("empty-emblem");
     const heading = node("h2");
     heading.textContent = "Where next?";
-    const copy = node("p", "", "Bring a scene, character, or idea.");
-    empty.append(emblem, heading, copy);
+    empty.append(emblem, heading);
     $("messages").append(empty);
   } else {
     messages.forEach((message) => renderMessage(message));
@@ -193,7 +192,8 @@ function renderHistory() {
     else if (commit.kind?.startsWith("relationship.") && label.startsWith("Relationship ")) label = label.replace(/^Relationship /, "Connection ");
     item.append(node("div", "history-title", label));
     item.append(node("div", "history-meta", `${idOf(commit).slice(0, 7)} · ${formatTime(commit.created_at)}`));
-    const restore = node("button", "history-action", current ? "Current version" : "↶ Restore version");
+    const restore = node("button", "history-action", current ? "Current" : "↶ Restore");
+    restore.setAttribute("aria-label", `${current ? "Current version" : "Restore version"} ${idOf(commit).slice(0, 7)}`);
     if (!current) restore.title = "Restoring creates a new version and preserves earlier versions.";
     restore.type = "button";
     restore.dataset.mutation = "";
@@ -314,8 +314,8 @@ function renderRelationships() {
     $("relationship-conflicts").append(item);
   });
   $("relationship-details").replaceChildren();
-  addJsonDetails($("relationship-details"), summary, "Weighted summary and transition estimates");
-  addJsonDetails($("relationship-details"), versionedState().relationships || {}, "Saved connections, assessments, and observations");
+  addJsonDetails($("relationship-details"), summary, "Summary and transition estimates");
+  addJsonDetails($("relationship-details"), versionedState().relationships || {}, "Saved records");
 }
 
 async function refresh(nextBranch = branch) {
@@ -381,13 +381,13 @@ function addEvidence(initial = {}) {
 
 function renderDecision(result) {
   const container = $("decision-result");
-  container.replaceChildren(node("div", "result-heading", "Saved comparison"));
+  container.replaceChildren();
   const summary = node("div", "recommendation-card");
   const recommendation = result.recommendation === "act" ? `Choose: ${result.selected_action || "selected action"}` : result.recommendation === "wait" ? "Explore before committing" : result.recommendation === "abstain" ? "Leave the choice open" : scalar(result.recommendation || result.selected_action || "Result recorded");
   summary.append(node("h3", "", recommendation));
   if (result.reason) summary.append(node("p", "", scalar(result.reason)));
   if (result.recommendation === "wait" && result.waiting_plan?.reconsider_when) {
-    summary.append(node("p", "", `Reconsider: ${scalar(result.waiting_plan.reconsider_when)}`));
+    summary.append(node("p", "", scalar(result.waiting_plan.reconsider_when)));
   }
   container.append(summary);
   if (Array.isArray(result.blocked_actions) && result.blocked_actions.length) {
@@ -424,7 +424,7 @@ function renderDecision(result) {
 
 function renderAudit(result) {
   const container = $("audit-result");
-  container.replaceChildren(node("div", "result-heading", "REVIEW RESULT"));
+  container.replaceChildren();
   const card = node("div", "recommendation-card");
   const graphDigest = workspace?.relationship_digest || workspace?.relationships?.digest;
   const stale = Boolean(graphDigest && result.relationship_digest !== graphDigest);
@@ -434,7 +434,7 @@ function renderAudit(result) {
   const reasons = Array.isArray(result.reasons) ? result.reasons : result.reasons ? [result.reasons] : [];
   reasons.forEach((reason) => card.append(node("p", "", scalar(reason))));
   container.append(card);
-  addJsonDetails(container, result, "Inspect sources and review result");
+  addJsonDetails(container, result, "Sources and review details");
   auditVerdict = result;
   updateArtifactGate();
 }

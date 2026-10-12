@@ -4,7 +4,7 @@ Dao 0.4.0 builds two standalone **Windows x64 applications**: general-purpose `D
 
 The [Windows executable workflow](https://github.com/Virgo-3/Dao/actions/workflows/windows-build.yml) provides separate `Dao-windows-x64` and `DaoNarrative-windows-x64` artifacts from current source. Each contains a runnable ZIP. Extract `Dao-windows-x64-0.4.0.zip` or `DaoNarrative-windows-x64-0.4.0.zip` to its own folder; each ZIP contains its executable, `SHA256SUMS`, `LICENSE`, and `README.txt`. Tagged builds are published under [GitHub Releases](https://github.com/Virgo-3/Dao/releases). Releases before 0.4.0 have only the earlier Dao app.
 
-The examples below launch Dao. Use `DaoNarrative.exe` for the separate writing app, whose browser port defaults to 8766 and whose terminal commands are described in the [Narrative guide](narrative.md).
+The examples and command table below describe general-purpose Dao. Narrative has direct manuscript saving and readable Markdown export; its formal decision, relationship, review, and manual integrity commands are removed. Use `DaoNarrative.exe` for the separate writing app, whose browser port defaults to 8766 and whose terminal commands are described in the [Narrative guide](narrative.md).
 
 ## Start a conversation
 

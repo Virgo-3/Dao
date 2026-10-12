@@ -62,6 +62,8 @@ class Handler(BaseHTTPRequestHandler):
         if not self.trusted():
             return self.respond(403, {"error": "Untrusted host or origin"})
         parsed = urlsplit(self.path)
+        if not self.app.supports_endpoint(parsed.path):
+            return self.respond(404, {"error": "Not found"})
         branch = parse_qs(parsed.query).get("branch", ["main"])[0]
         try:
             if parsed.path in {"/api/bootstrap", "/api/state"}:
@@ -71,7 +73,7 @@ class Handler(BaseHTTPRequestHandler):
             elif parsed.path == "/api/verify":
                 self.respond(200, self.app.store.verify())
             elif parsed.path == "/api/export":
-                self.respond(200, {"schema": "dao-export-v1", **self.app.snapshot(branch)})
+                self.respond(200, self.app.export(branch))
             elif parsed.path in {"/", "/index.html", "/app.js", "/style.css", "/static/app.js", "/static/style.css", "/static/dao.svg", "/static/dao.ico"}:
                 filename = "index.html" if parsed.path == "/" else parsed.path.rsplit("/", 1)[-1]
                 # Each app owns its HTML and script; style and branding are shared.
@@ -104,6 +106,8 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(data, dict):
                 raise ValueError("Request must be a JSON object")
             path = urlsplit(self.path).path
+            if not self.app.supports_endpoint(path):
+                return self.respond(404, {"error": "Not found"})
             if path == "/api/chat":
                 stream = self.app.chat(data)
                 first = next(stream)  # Admission errors retain ordinary HTTP status codes.

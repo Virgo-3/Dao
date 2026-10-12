@@ -4,7 +4,7 @@ Dao is a local conversational agent with versioned, branchable state. It saves m
 
 Dao starts in an **offline demo** with deterministic replies and no model calls. Live AI is optional. The terminal and browser workspace both support saved state, branches, decisions, and evidence review.
 
-This repository builds two separate applications. **Dao** is the general-purpose app and remains the default. **Dao Narrative** preserves the writing interface, story examples, and terminal language. Each has its own launcher, Windows executable, default database, and browser port; both share the same state and decision engine.
+This repository builds two separate applications. **Dao** is the general-purpose app and remains the default. **Dao Narrative** is a writing room for conversation, story notes, documents, alternate drafts, and saved versions. Each has its own launcher, Windows executable, default database, and browser port; both share durable storage, streaming transport, and usage accounting. Narrative uses writing-specific model instructions, has no model tools, and saves documents directly without approval.
 
 | Application | Browser launch | Terminal launch | Windows executable |
 | --- | --- | --- | --- |
@@ -103,7 +103,7 @@ python -m dao --terminal
 
 Use `DAO_MODEL` to select a Responses API model available to your account. See [.env.example](.env.example) for all settings; Dao does not load `.env` files automatically.
 
-Live inference sends the current conversation, saved memory, and relationship context to OpenAI with `store=false`. The API key is used for authentication and excluded from Dao's public configuration, saved state, and exports. Model requests have bounded token reservations and a read-only decision tool. The default lifetime token budget is **100,000**; configure `DAO_TOKEN_BUDGET` to change it. Optional input and output rates enable estimated dollar accounting. Estimates are not provider invoices, and offline demo token counts are estimates with zero monetary cost.
+Dao live inference sends the current conversation, saved memory, and relationship context to OpenAI with `store=false`. The API key is used for authentication and excluded from Dao's public configuration, saved state, and exports. Dao model requests have bounded token reservations and a read-only decision tool. Narrative sends the conversation, story notes, and saved document content with writing-specific instructions and no model tools. The default lifetime token budget is **100,000**; configure `DAO_TOKEN_BUDGET` to change it. Optional input and output rates enable estimated dollar accounting. Estimates are not provider invoices, and offline demo token counts are estimates with zero monetary cost.
 
 ## How to interpret results
 

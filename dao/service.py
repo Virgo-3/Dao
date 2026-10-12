@@ -32,6 +32,18 @@ class Dao:
     def demo_response(self, state):
         return demo_stream(state)
 
+    def model_reservation(self, state):
+        return reservation(state, self.config)
+
+    def live_response(self, state):
+        return openai_stream(state, self.config, lambda problem: self.evaluate_problem(state, problem))
+
+    def supports_endpoint(self, path):
+        return True
+
+    def export(self, branch="main"):
+        return {"schema": "dao-export-v1", **self.snapshot(branch)}
+
     def memory_message(self, key, value):
         return f"Saved {key}: {value}. This memory is part of this branch’s state."
 
@@ -180,7 +192,7 @@ class Dao:
             state = deepcopy(head["state"])
             state["messages"].append({"role": "user", "content": message})
             # Validate context before writing a user turn or reserving a model request.
-            reserve = reservation(state, self.config)
+            reserve = self.model_reservation(state)
             current = self.store.commit(branch, state, "user", " ".join(message.split())[:72], head["id"])
             yield {"type": "start", "head": current}
             chunks, active_id, charged = [], None, False
@@ -204,8 +216,7 @@ class Dao:
                     active_id = uuid.uuid4().hex
                     self.store.reserve_usage(branch, active_id, reserve, self.config.token_budget)
                     self.store.append_event(branch, "model_attempt", {"request_id": active_id, "provider": self.config.provider})
-                    stream = (self.demo_response(state) if self.config.provider == "demo" else
-                              openai_stream(state, self.config, lambda problem: self.evaluate_problem(state, problem)))
+                    stream = self.demo_response(state) if self.config.provider == "demo" else self.live_response(state)
                 for event in stream:
                     if event["type"] == "delta":
                         delta = event["text"]

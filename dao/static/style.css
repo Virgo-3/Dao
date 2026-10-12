@@ -282,3 +282,8 @@ summary::marker { color: var(--accent); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; scroll-behavior: auto !important; transition: none !important; }
 }
+
+/* Narrative keeps writing controls separate from the general-purpose tools. */
+.narrative .tabs { grid-template-columns: repeat(3, 1fr); }
+.narrative #document-content { min-height: 260px; }
+.narrative #document-save, .narrative #document-download { margin-top: 10px; }

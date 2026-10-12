@@ -1,14 +1,21 @@
 # Runtime architecture
 
-Dao and Dao Narrative are separate applications over this runtime. Their fixed entry points select their HTML, script, terminal wording, and examples. CSS, Hanzi branding, live provider instructions, storage schema, decision evaluation, evidence policy, and accounting are shared. Each application creates its own runtime and uses its own default database and browser port; only an explicit `--db PATH` makes them share a database.
+Dao and Dao Narrative are separate applications sharing durable storage, branch locks, bounded streaming transport, CSS, branding, and usage accounting. Each creates its own runtime and uses its own default database and browser port; only an explicit `--db PATH` makes them share a database.
 
-`dao_narrative.app.NarrativeDao` overrides presentation and demo examples. `dao_narrative.terminal.NarrativeTerminal` supplies writing labels and help to the same terminal command implementation. Neither application has an interface selector.
+`dao_narrative.app.NarrativeDao` owns direct document saves, a writing snapshot, readable Markdown exports, and the Narrative endpoint boundary. Decision, relationship, audit, and manual integrity endpoints are unavailable in Narrative. Its terminal accepts writing and state commands only. The provider selects writing-specific instructions, includes saved notes and document content at user priority, and offers no model tools. Context validation and token admission include that document content. Unexpected provider tool calls fail without evaluation or another model request.
+
+Existing legacy records remain in snapshots and history. They are not presented as Narrative tools, included as structured model context, or used to block its document saving. Dao retains its existing decision tool, relationship context, and artifact approval policy. The runtime lifecycle and policy sections below describe Dao; Narrative reuses persistence and accounting while replacing the writing-specific paths.
 
 ```mermaid
 flowchart LR
     UI[Dao browser] --> HTTP[Loopback HTTP + origin/CSRF checks]
     NarrativeUI[Dao Narrative browser] --> HTTP
-    Terminal[Dao and Dao Narrative terminals] --> Runtime
+    HTTP --> Writing[Narrative writing runtime]
+    Writing --> Store
+    Writing --> Writer[Tool-free writing provider]
+    Writer --> Provider
+    Terminal[Dao terminal] --> Runtime
+    NarrativeTerminal[Narrative terminal] --> Writing
     HTTP --> Runtime[Dao runtime + branch lock]
     Runtime --> Store[SQLite state + journal + usage]
     Runtime --> Decision[Scenario decision engine]

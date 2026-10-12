@@ -51,19 +51,30 @@ def main():
         for index, operation in enumerate(operations):
             operation_path = isolated / f"relationship-{index}.json"
             operation_path.write_text(json.dumps(operation), encoding="utf-8")
-            relationship_commands += f'/{"connect" if narrative else "relate"} "{operation_path}"\n'
-        commands = (f"/remember proof=packaged\n/{'draft' if narrative else 'branch'} standalone\n/remember proof=branch\n"
-                    + relationship_commands + ("/connections\n/conflicts\n/explore\n/notes\n/versions\n" if narrative else
-                                                "/relationships\n/conflicts\n/decide\n/memory\n/history\n")
-                    + "Help me explore an unresolved question.\n/verify\n" + ("/activity" if narrative else "/usage") + "\n/quit\n")
+            relationship_commands += f'/relate "{operation_path}"\n'
+        if narrative:
+            scene = isolated / "scene.md"
+            scene.write_text("  Mara chooses a different ending.\n", encoding="utf-8", newline="\n")
+            exported = isolated / "story.md"
+            commands = ("/remember proof=packaged\n/draft standalone\n/remember proof=branch\n"
+                        f'/manuscript "{scene}"\n/documents\n/document scene.md\n/export "{exported}"\n'
+                        "/notes\n/versions\nHelp me revise this scene.\n/activity\n/quit\n")
+        else:
+            commands = ("/remember proof=packaged\n/branch standalone\n/remember proof=branch\n"
+                        + relationship_commands + "/relationships\n/conflicts\n/decide\n/memory\n/history\n"
+                        "Help me explore an unresolved question.\n/verify\n/usage\n/quit\n")
         terminal = subprocess.run([str(copied)], input=commands, capture_output=True,
                                   text=True, encoding="utf-8", errors="replace", env=environment,
                                   cwd=isolated, timeout=60)
         assert terminal.returncode == 0, terminal.stderr
-        assert "Integrity: OK" in terminal.stdout and "Error:" not in terminal.stdout, terminal.stdout
+        assert "Error:" not in terminal.stdout, terminal.stdout
+        if not narrative:
+            assert "Integrity: OK" in terminal.stdout, terminal.stdout
         banner = "Dao Narrative writing room" if narrative else "Dao terminal"
-        example = "Try an alternate scene" if narrative else "Reversible pilot"
+        example = "Mara chooses a different ending." if narrative else "Reversible pilot"
         assert banner in terminal.stdout and example in terminal.stdout, terminal.stdout
+        if narrative:
+            assert "Mara chooses a different ending." in exported.read_text(encoding="utf-8")
         assert database.is_file(), "Frozen default database did not use persistent application data"
         other_folder = "Dao" if narrative else "DaoNarrative"
         assert not (isolated / "userdata" / other_folder / "state.sqlite3").exists(), "App wrote to the other application's data folder"
@@ -93,9 +104,14 @@ def main():
                 branch_state = json.load(response)
             assert branch_state["head"]["state"]["memory"] == {"proof": "branch"}
             assert branch_state["usage"]["total_tokens"] > 0
-            assert branch_state["relationships"]["negative_weight"] == 2
-            assert len(branch_state["relationships"]["unresolved_conflicts"]) == 1
-            assert main_state["relationships"]["relation_count"] == 0
+            if narrative:
+                assert branch_state["head"]["state"]["artifacts"]["scene.md"]["content"] == scene.read_text(encoding="utf-8")
+                assert not branch_state["head"]["state"]["decisions"]
+                assert "relationships" not in branch_state
+            else:
+                assert branch_state["relationships"]["negative_weight"] == 2
+                assert len(branch_state["relationships"]["unresolved_conflicts"]) == 1
+                assert main_state["relationships"]["relation_count"] == 0
             for route, marker in (("/", b"Dao"), ("/app.js", b"fetch"), ("/style.css", b"background")):
                 with urlopen(url + route, timeout=5) as response:
                     body = response.read()
@@ -103,10 +119,14 @@ def main():
                     if route == "/":
                         expected_title = "Dao Narrative · Writing room" if narrative else "Dao · Workspace"
                         assert expected_title.encode() in body, "Wrong application UI bundled"
-            with urlopen(url + "/api/decision-example", timeout=5) as response:
-                assert example in [action["name"] for action in json.load(response)["actions"]]
-            with urlopen(url + "/api/verify", timeout=5) as response:
-                assert json.load(response)["ok"]
+            if narrative:
+                with urlopen(url + "/api/export?branch=standalone", timeout=5) as response:
+                    assert example in json.load(response)["content"]
+            else:
+                with urlopen(url + "/api/decision-example", timeout=5) as response:
+                    assert example in [action["name"] for action in json.load(response)["actions"]]
+                with urlopen(url + "/api/verify", timeout=5) as response:
+                    assert json.load(response)["ok"]
         finally:
             if server.poll() is None:
                 server.send_signal(signal.CTRL_BREAK_EVENT if os.name == "nt" else signal.SIGINT)
@@ -120,7 +140,8 @@ def main():
                         server.kill()
                     server.wait(timeout=10)
             assert server.returncode == 0, f"Packaged web server shutdown failed: {server.returncode}"
-        print("PASS: standalone terminal streaming, relationships, conflicts, branches, persistence, usage, web assets, integrity, shutdown")
+        print("PASS: standalone terminal streaming, writing" if narrative else "PASS: standalone terminal streaming, relationships and conflicts")
+        print("PASS: branches, persistence, usage, web assets, shutdown")
     with executable.open("rb") as source:
         print("SHA256:", hashlib.file_digest(source, "sha256").hexdigest())
     return 0

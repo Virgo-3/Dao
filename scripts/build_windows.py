@@ -74,7 +74,7 @@ def main(argv: list[str] | None = None) -> int:
     readme = output / "README.txt"
     purpose = ("A writing room with alternate drafts and saved versions." if narrative else
                "A conversational workspace with branches, revisions, evidence review, and decisions.")
-    commands = ("/draft NAME, /notes, /explore, /review PATH, and /activity" if narrative else
+    commands = ("/draft NAME, /notes, /manuscript PATH, /documents, and /activity" if narrative else
                 "/branch NAME, /memory, /decide, /audit PATH, and /usage")
     readme.write_text(
         f"{display_name} {version} — Windows x64\n\n"

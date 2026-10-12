@@ -77,43 +77,31 @@ class TerminalTests(unittest.TestCase):
     def test_story_commands_share_drafts_versions_and_accounting(self):
         self.app = NarrativeDao(self.store, Config())
         initial = self.store.head()["id"]
-        problem = self.file("story choice.json", demo_payload())
-        connection = self.file("story connection.json", {
-            "operation": "node", "node": {"id": "mara", "label": "Mara", "kind": "person", "importance": 1}})
         commands = ("/remember motive=Protect Ivo\n/draft alternate\n/remember motive=Expose Ivo\n"
-                    f'/connect "{connection}"\n/connections\n/explore\n/explore "{problem}"\n'
                     "/notes\n/drafts\n/version\n/versions\n/activity\n/switch main\n"
-                    f"/restore {initial[:12]}\n/verify\n/quit\n")
+                    f"/restore {initial[:12]}\n/quit\n")
         code, output, _ = self.run_terminal(commands)
         self.assertEqual(code, 0)
         self.assertNotIn("Error:", output)
         self.assertIn("Dao Narrative writing room | draft main", output)
         self.assertIn("motive = Expose Ivo", output)
-        self.assertIn("Try an alternate scene", output)
         self.assertIn("Story started", output)
         alternate = self.store.head("alternate")["state"]
         self.assertEqual(alternate["memory"], {"motive": "Expose Ivo"})
-        self.assertEqual(len(alternate["decisions"]), 2)
-        self.assertEqual(alternate["relationships"]["nodes"]["mara"]["label"], "Mara")
+        self.assertEqual(alternate["decisions"], [])
         self.assertEqual(self.store.head()["state"]["memory"], {})
         self.assertEqual(self.store.usage()["entries"], [])
         self.assertTrue(self.store.verify()["ok"])
 
-    def test_story_review_and_document_aliases_preserve_the_save_gate(self):
+    def test_story_document_saves_plain_text_without_the_old_gate(self):
         self.app = NarrativeDao(self.store, Config())
-        audit = self.audit_payload()
-        verdict = self.app.adjudicate_problem(self.store.head()["state"], audit)
-        source = self.file("review.json", audit)
-        document = self.file("manuscript.json", {
-            "name": "plan", "content": "Pilot first", "verdict_id": verdict["verdict_id"]})
-        override = self.file("review override.json", {**audit, "branch": "main"})
-        code, output, _ = self.run_terminal(
-            f"/manuscript {document}\n/review {override}\n/review {source}\n/manuscript {document}\n/quit\n")
+        document = Path(self.temp.name) / "scene.md"
+        document.write_text("  Mara opens the letter.\n", encoding="utf-8", newline="\n")
+        code, output, _ = self.run_terminal(f"/manuscript {document}\n/documents\n/document scene.md\n/quit\n")
         self.assertEqual(code, 0)
-        self.assertEqual(output.count("Artifact needs an allowed adjudication"), 1)
-        self.assertEqual(output.count("cannot select a branch"), 1)
-        self.assertEqual(output.count("Document saved"), 1)
-        self.assertEqual(self.store.head()["state"]["artifacts"]["plan"]["content"], "Pilot first")
+        self.assertNotIn("Error:", output)
+        self.assertIn("Document scene.md saved", output)
+        self.assertEqual(self.store.head()["state"]["artifacts"]["scene.md"]["content"], "  Mara opens the letter.\n")
         self.assertEqual(self.store.usage()["entries"], [])
 
     def test_imports_use_current_branch_and_latest_artifact_gate(self):

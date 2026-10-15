@@ -1,14 +1,11 @@
 # Runtime architecture
 
-Dao and Dao Narrative are separate applications over this runtime. Their fixed entry points select their HTML, script, terminal wording, and examples. CSS, Hanzi branding, live provider instructions, storage schema, decision evaluation, evidence policy, and accounting are shared. Each application creates its own runtime and uses its own default database and browser port; only an explicit `--db PATH` makes them share a database.
-
-`dao_narrative.app.NarrativeDao` overrides presentation and demo examples. `dao_narrative.terminal.NarrativeTerminal` supplies writing labels and help to the same terminal command implementation. Neither application has an interface selector.
+Dao provides browser and terminal interfaces over the same runtime, storage schema, decision evaluation, evidence policy, and usage accounting. Both interfaces use the same default database; `--db PATH` selects another database. The browser binds to loopback port 8765 by default.
 
 ```mermaid
 flowchart LR
     UI[Dao browser] --> HTTP[Loopback HTTP + origin/CSRF checks]
-    NarrativeUI[Dao Narrative browser] --> HTTP
-    Terminal[Dao and Dao Narrative terminals] --> Runtime
+    Terminal[Dao terminal] --> Runtime
     HTTP --> Runtime[Dao runtime + branch lock]
     Runtime --> Store[SQLite state + journal + usage]
     Runtime --> Decision[Scenario decision engine]

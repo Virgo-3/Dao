@@ -12,8 +12,6 @@ from dao.provider import ProviderError
 from dao.service import Dao, artifact_claim
 from dao.store import Store
 from dao.terminal import Terminal
-from dao_narrative.app import NarrativeDao
-from dao_narrative.terminal import NarrativeTerminal
 
 
 class TerminalTests(unittest.TestCase):
@@ -30,8 +28,7 @@ class TerminalTests(unittest.TestCase):
     def run_terminal(self, commands, *, branch="main", input_stream=None, output_stream=None):
         source = input_stream if input_stream is not None else io.StringIO(commands)
         output = output_stream if output_stream is not None else io.StringIO()
-        view = NarrativeTerminal if isinstance(self.app, NarrativeDao) else Terminal
-        terminal = view(self.app, branch, source, output)
+        terminal = Terminal(self.app, branch, source, output)
         with patch("dao.provider.time.sleep"):
             code = terminal.run()
         return code, output.getvalue() if hasattr(output, "getvalue") else "", terminal
@@ -74,8 +71,7 @@ class TerminalTests(unittest.TestCase):
         self.assertIn('"recommendation": "wait"', output)
         self.assertIn("next = Study", output)
 
-    def test_story_commands_share_drafts_versions_and_accounting(self):
-        self.app = NarrativeDao(self.store, Config())
+    def test_command_aliases_share_branches_revisions_and_accounting(self):
         initial = self.store.head()["id"]
         problem = self.file("story choice.json", demo_payload())
         connection = self.file("story connection.json", {
@@ -87,10 +83,10 @@ class TerminalTests(unittest.TestCase):
         code, output, _ = self.run_terminal(commands)
         self.assertEqual(code, 0)
         self.assertNotIn("Error:", output)
-        self.assertIn("Dao Narrative writing room | draft main", output)
+        self.assertIn("Dao terminal | branch main", output)
         self.assertIn("motive = Expose Ivo", output)
-        self.assertIn("Try an alternate scene", output)
-        self.assertIn("Story started", output)
+        self.assertIn("Reversible pilot", output)
+        self.assertIn("Workspace started", output)
         alternate = self.store.head("alternate")["state"]
         self.assertEqual(alternate["memory"], {"motive": "Expose Ivo"})
         self.assertEqual(len(alternate["decisions"]), 2)
@@ -99,8 +95,7 @@ class TerminalTests(unittest.TestCase):
         self.assertEqual(self.store.usage()["entries"], [])
         self.assertTrue(self.store.verify()["ok"])
 
-    def test_story_review_and_document_aliases_preserve_the_save_gate(self):
-        self.app = NarrativeDao(self.store, Config())
+    def test_review_and_artifact_aliases_preserve_the_save_gate(self):
         audit = self.audit_payload()
         verdict = self.app.adjudicate_problem(self.store.head()["state"], audit)
         source = self.file("review.json", audit)
@@ -112,7 +107,7 @@ class TerminalTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(output.count("Artifact needs an allowed adjudication"), 1)
         self.assertEqual(output.count("cannot select a branch"), 1)
-        self.assertEqual(output.count("Document saved"), 1)
+        self.assertEqual(output.count("Artifact saved"), 1)
         self.assertEqual(self.store.head()["state"]["artifacts"]["plan"]["content"], "Pilot first")
         self.assertEqual(self.store.usage()["entries"], [])
 

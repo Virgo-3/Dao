@@ -24,7 +24,6 @@ PYINSTALLER_VERSION = "6.22.3"
 def main(argv: list[str] | None = None) -> int:
     repo = Path(__file__).resolve().parents[1]
     parser = argparse.ArgumentParser(description="Build a standalone Windows x64 Dao application")
-    parser.add_argument("--app", choices=("dao", "narrative"), default="dao", help="Application to package")
     parser.add_argument("--output-dir", type=Path, help="Package output directory")
     args = parser.parse_args(argv)
     if sys.platform != "win32":
@@ -38,10 +37,8 @@ def main(argv: list[str] | None = None) -> int:
     if installed != PYINSTALLER_VERSION:
         parser.error(f"This build requires PyInstaller {PYINSTALLER_VERSION}; found {installed}. Install the pinned version first.")
 
-    narrative = args.app == "narrative"
-    name = "DaoNarrative" if narrative else "Dao"
-    display_name = "Dao Narrative" if narrative else "Dao"
-    output = (args.output_dir or repo / "dist" / ("windows-narrative" if narrative else "windows")).resolve()
+    name = "Dao"
+    output = (args.output_dir or repo / "dist" / "windows").resolve()
     work = repo / "build" / "windows" / name
     output.mkdir(parents=True, exist_ok=True)
     work.mkdir(parents=True, exist_ok=True)
@@ -54,10 +51,8 @@ def main(argv: list[str] | None = None) -> int:
         "--distpath", str(output),
         "--workpath", str(work),
         "--specpath", str(work),
+        str(repo / "packaging" / "dao_entry.py"),
     ]
-    if narrative:
-        command.extend(["--add-data", f"{repo / 'dao_narrative' / 'static'}:dao_narrative/static"])
-    command.append(str(repo / "packaging" / ("dao_narrative_entry.py" if narrative else "dao_entry.py")))
     try:
         subprocess.run(command, cwd=repo, check=True)
     except subprocess.CalledProcessError as exc:
@@ -72,19 +67,15 @@ def main(argv: list[str] | None = None) -> int:
         version = tomllib.load(source)["project"]["version"]
     shutil.copyfile(repo / "LICENSE", output / "LICENSE")
     readme = output / "README.txt"
-    purpose = ("A writing room with alternate drafts and saved versions." if narrative else
-               "A conversational workspace with branches, revisions, evidence review, and decisions.")
-    commands = ("/draft NAME, /notes, /explore, /review PATH, and /activity" if narrative else
-                "/branch NAME, /memory, /decide, /audit PATH, and /usage")
     readme.write_text(
-        f"{display_name} {version} — Windows x64\n\n"
+        f"Dao {version} — Windows x64\n\n"
         "No Python installation is needed. Extract the package before running.\n"
         "Open PowerShell in this directory and run:\n"
         f"  .\\{name}.exe\n"
         f"  .\\{name}.exe --web --open-browser\n\n"
-        f"{purpose}\n"
+        "A conversational workspace with branches, revisions, evidence review, and decisions.\n"
         "It starts with the offline demo. Enter /help for terminal commands.\n"
-        f"Try {commands}.\n"
+        "Try /branch NAME, /memory, /decide, /audit PATH, and /usage.\n"
         f"State persists at %LOCALAPPDATA%\\{name}\\state.sqlite3.\n"
         "Use --db PATH to select a separate database; terminal and browser can share it.\n"
         "The Python runtime is bundled. Credentials and conversation state are not included.\n"

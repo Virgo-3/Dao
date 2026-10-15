@@ -4,15 +4,6 @@ Dao is a local conversational agent with versioned, branchable state. It saves m
 
 Dao starts in an **offline demo** with deterministic replies and no model calls. Live AI is optional. The terminal and browser workspace both support saved state, branches, decisions, and evidence review.
 
-This repository builds two separate applications. **Dao** is the general-purpose app and remains the default. **Dao Narrative** preserves the writing interface, story examples, and terminal language. Each has its own launcher, Windows executable, default database, and browser port; both share the same state and decision engine.
-
-| Application | Browser launch | Terminal launch | Windows executable |
-| --- | --- | --- | --- |
-| Dao | `python -m dao` · port 8765 | `python -m dao --terminal` | `Dao.exe` |
-| Dao Narrative | `python -m dao_narrative` · port 8766 | `python -m dao_narrative --terminal` | `DaoNarrative.exe` |
-
-See the [Dao Narrative guide](docs/narrative.md) for its writing interface and commands.
-
 ![Dao browser workspace](docs/workspace.jpg)
 
 ## What Dao does
@@ -45,11 +36,11 @@ Open **http://127.0.0.1:8765**. To start the terminal instead:
 python -m dao --terminal
 ```
 
-Dao saves source-launch state in `.dao/state.sqlite3`; Dao Narrative uses `.dao-narrative/state.sqlite3`. Use `--db PATH` to choose another database, `--port 9000` to change the browser port, or `--branch NAME` to select an existing terminal branch. Each app's browser and terminal share its database. Optional `pip install .` installs `dao`, `dao-terminal`, `dao-narrative`, and `dao-narrative-terminal`.
+Dao saves source-launch state in `.dao/state.sqlite3`. Use `--db PATH` to choose another database, `--port 9000` to change the browser port, or `--branch NAME` to select an existing terminal branch. The browser and terminal share the same database. Optional `pip install .` installs `dao` and `dao-terminal`.
 
 ## Windows executable
 
-Get the current Windows x64 packages from the [Windows workflow](https://github.com/Virgo-3/Dao/actions/workflows/windows-build.yml). It builds separate ZIPs for Dao and Dao Narrative. Tagged builds are published under [Releases](https://github.com/Virgo-3/Dao/releases); releases before 0.4.0 contain only the earlier Dao app. Extract the desired ZIP and open PowerShell in that folder:
+Get the current Windows x64 Dao package from the [Windows workflow](https://github.com/Virgo-3/Dao/actions/workflows/windows-build.yml). Tagged builds are published under [Releases](https://github.com/Virgo-3/Dao/releases). Extract the ZIP and open PowerShell in that folder:
 
 ```powershell
 .\Dao.exe
@@ -61,9 +52,9 @@ The executable starts the terminal and includes Python. To open the browser work
 .\Dao.exe --web --open-browser
 ```
 
-Dao saves executable state in `%LOCALAPPDATA%\Dao\state.sqlite3`; Dao Narrative uses `%LOCALAPPDATA%\DaoNarrative\state.sqlite3`. Both executables are unsigned and each ZIP contains `SHA256SUMS`. See the [Windows guide](docs/windows.md) for launch, verification, and build instructions.
+Dao saves executable state in `%LOCALAPPDATA%\Dao\state.sqlite3`. The executable is unsigned and the ZIP contains `SHA256SUMS`. See the [Windows guide](docs/windows.md) for launch, verification, and build instructions.
 
-Existing databases remain in place, including any writing work saved by the earlier Dao interface. To open one in either app, pass its path with `--db PATH`. Launching the other app does not copy or rewrite it.
+Existing databases remain in place, including any writing work saved by earlier interfaces. To open one in Dao, pass its path with `--db PATH`.
 
 ## Try a branch
 
@@ -117,7 +108,6 @@ Dao is a single-user application bound to `127.0.0.1`. Artifacts are content sav
 
 - [Project guide](docs/overview.md)
 - [Terminal commands](docs/terminal.md) and [Windows instructions](docs/windows.md)
-- [Dao Narrative](docs/narrative.md)
 - [Relationships and conflict resolution](docs/relationships.md)
 - [Decision model](docs/decision-model.md) and [mathematical checks](docs/mathematical-checks.md)
 - [Architecture](docs/architecture.md) and [security boundaries](SECURITY.md)
@@ -127,9 +117,8 @@ Run the Python tests and browser JavaScript syntax check:
 ```sh
 python -m unittest discover -s tests -v
 node --check dao/static/app.js
-node --check dao_narrative/static/app.js
 ```
 
-Node is only needed for the syntax checks. GitHub Actions runs tests on Windows and Linux, and a separate workflow builds and smoke-tests both Windows executables. Provider tests use synthetic responses; live inference and provider billing require separate verification.
+Node is only needed for the syntax check. GitHub Actions runs tests on Windows and Linux, and a separate workflow builds and smoke-tests the Windows executable. Provider tests use synthetic responses; live inference and provider billing require separate verification.
 
 Dao is available under the [MIT license](LICENSE).

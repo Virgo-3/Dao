@@ -2,8 +2,6 @@
 
 Start `python -m dao --terminal` from source, or open standalone `Dao.exe`. Select an existing branch with `--branch NAME`. The terminal and browser use the same saved state; see [Windows instructions](windows.md) for executable download, launch, and database selection.
 
-This guide describes the general-purpose Dao app. [Dao Narrative](narrative.md) has its own launcher and writing command vocabulary. Both use the same command implementation and accept the earlier and writing aliases.
-
 Type a message to converse, `/help` for the command list, or `/quit` to exit. `/say TEXT` sends literal text, including a message beginning with `/`. Terminal commands do not execute a shell.
 
 | Command | Purpose |

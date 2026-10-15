@@ -1,10 +1,8 @@
 # Dao on Windows
 
-Dao 0.4.0 builds two standalone **Windows x64 applications**: general-purpose `Dao.exe` and writing-focused `DaoNarrative.exe`. Each includes Python and both terminal and browser interfaces.
+Dao 0.4.0 builds a standalone **Windows x64 application**, `Dao.exe`, that includes Python and both terminal and browser interfaces.
 
-The [Windows executable workflow](https://github.com/Virgo-3/Dao/actions/workflows/windows-build.yml) provides separate `Dao-windows-x64` and `DaoNarrative-windows-x64` artifacts from current source. Each contains a runnable ZIP. Extract `Dao-windows-x64-0.4.0.zip` or `DaoNarrative-windows-x64-0.4.0.zip` to its own folder; each ZIP contains its executable, `SHA256SUMS`, `LICENSE`, and `README.txt`. Tagged builds are published under [GitHub Releases](https://github.com/Virgo-3/Dao/releases). Releases before 0.4.0 have only the earlier Dao app.
-
-The examples below launch Dao. Use `DaoNarrative.exe` for the separate writing app, whose browser port defaults to 8766 and whose terminal commands are described in the [Narrative guide](narrative.md).
+The [Windows executable workflow](https://github.com/Virgo-3/Dao/actions/workflows/windows-build.yml) provides the `Dao-windows-x64` artifact from current source. Extract its runnable `Dao-windows-x64-0.4.0.zip` to a folder; the ZIP contains `Dao.exe`, `SHA256SUMS`, `LICENSE`, and `README.txt`. Tagged builds are published under [GitHub Releases](https://github.com/Virgo-3/Dao/releases).
 
 ## Start a conversation
 
@@ -32,7 +30,7 @@ Check the executable version:
 
 ## Save state and create branches
 
-Dao defaults to `%LOCALAPPDATA%\Dao\state.sqlite3`; Dao Narrative uses `%LOCALAPPDATA%\DaoNarrative\state.sqlite3`. Both databases are outside the extracted packages, so updating an executable preserves its state. Source launches use `.dao/state.sqlite3` and `.dao-narrative/state.sqlite3` respectively. Existing databases stay in place. Use an explicit path to open earlier writing work in Dao Narrative or to share a database deliberately:
+Dao defaults to `%LOCALAPPDATA%\Dao\state.sqlite3`, outside the extracted package, so updating the executable preserves its state. Source launches use `.dao/state.sqlite3`. Existing databases stay in place. Use an explicit path to open an existing database or select a separate workspace:
 
 ```powershell
 .\Dao.exe --db "C:\Users\YourName\Documents\Dao\state.sqlite3"
@@ -90,16 +88,14 @@ From the repository root:
 python -m pip install pyinstaller==6.22.3
 python -m unittest discover -s tests -v
 python scripts/build_windows.py
-python scripts/build_windows.py --app narrative
 ```
 
-Dao outputs appear in `dist/windows`; Dao Narrative outputs appear in `dist/windows-narrative`. Use `--output-dir PATH` to choose another directory. The script validates the Windows platform, interpreter architecture, and builder version; invokes PyInstaller with the chosen application's entry point and assets; creates the executable checksum; and assembles its runnable ZIP. It does not install dependencies or bundle credentials or state.
+Dao outputs appear in `dist/windows`. Use `--output-dir PATH` to choose another directory. The script validates the Windows platform, interpreter architecture, and builder version; invokes PyInstaller with Dao's entry point and assets; creates the executable checksum; and assembles its runnable ZIP. It does not install dependencies or bundle credentials or state.
 
-Verify each real executable:
+Verify the real executable:
 
 ```powershell
 python scripts/smoke_windows.py dist/windows/Dao.exe
-python scripts/smoke_windows.py dist/windows-narrative/DaoNarrative.exe --app narrative
 ```
 
 The relevant options are documented in the [PyInstaller usage reference](https://pyinstaller.org/en/stable/usage.html). Equivalent inputs produce the same application behavior, but binary-identical output is not promised across different Windows or Python installations. The workflow tests and builds every main-branch update, pull request, and `v*` tag; a successfully built tag is published as a GitHub Release.

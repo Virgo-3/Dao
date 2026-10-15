@@ -4,8 +4,6 @@
 
 Dao is a local conversational agent with saved revision history and branches. It records messages, decisions, audits, relationships, tool results, and usage. Its decision engine compares acting, waiting for information, and abstaining. Its relationship graph keeps beliefs separate from reported observations and tracks unresolved conflicts that can exclude particular actions from the calculation.
 
-This guide describes the default, general-purpose Dao app. [Dao Narrative](narrative.md) is a separate writing app with its own launcher, executable, default database, and port. Both use the same runtime.
-
 ![Dao workspace](workspace.jpg)
 
 ## Windows executable

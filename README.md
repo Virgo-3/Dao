@@ -1,28 +1,20 @@
 # Dao
 
-Dao is a local conversational agent with versioned, branchable state. It saves messages, memory, decisions, audits, relationships, artifacts, and usage so you can explore alternatives and revisit earlier checkpoints. Its decision engine compares **act**, **wait**, and **abstain**, accounting for uncertainty, reversibility, and the value of additional information.
+**A conversation with room to change your mind.**
 
-Dao starts in an **offline demo** with deterministic replies and no model calls. Live AI is optional. The terminal and browser workspace both support saved state, branches, decisions, and evidence review.
+Dao is a local conversational workspace where you can follow a thought, branch into another possibility, and return to an earlier checkpoint. It saves your conversation and working state together, with tools for comparing decisions, reviewing evidence, and tracking usage.
+
+Use the browser workspace or the streaming terminal. Both work with the same saved history.
+
+**The default is an offline demo.** It produces deterministic replies without an account, API key, or model call. You can try the full state and decision workflow before enabling live AI.
 
 ![Dao browser workspace](docs/workspace.jpg)
 
-## What Dao does
+## Get started
 
-| Capability | Purpose |
-| --- | --- |
-| Revisions and branches | Save immutable snapshots and explore alternatives from a selected checkpoint |
-| Restore | Create a new revision from an earlier checkpoint while retaining history and lifetime usage |
-| Decision engine | Compare actions using explicit scenarios, probabilities, payoffs, costs, reversibility, and possible observations |
-| Relationship graph | Separate assessed beliefs from reported observations and track persistent conflicts |
-| Audit as adjudication | Review submitted evidence under an explicit policy and record a verdict |
-| Artifacts | Save named content in the database when the current audit and relationship state permit it |
-| Usage accounting | Reserve tokens before requests and account for usage across branches, restores, and failed calls |
+### From source
 
-The option value of waiting comes from the supplied observation model: Dao evaluates how new information could change the best available action, then accounts for waiting, observation, and delay costs. Recorded reconsideration conditions do not schedule future work.
-
-## Run from source
-
-Use **Python 3.11 or newer**. The offline demo needs no runtime dependencies or API key.
+Requires **Python 3.11 or newer**. The offline demo uses only the Python standard library.
 
 ```sh
 git clone https://github.com/Virgo-3/Dao.git
@@ -30,53 +22,68 @@ cd Dao
 python -m dao
 ```
 
-Open **http://127.0.0.1:8765**. To start the terminal instead:
+Open [localhost:8765](http://127.0.0.1:8765) in your browser. To start a conversation in the terminal:
 
 ```sh
 python -m dao --terminal
 ```
 
-Dao saves source-launch state in `.dao/state.sqlite3`. Use `--db PATH` to choose another database, `--port 9000` to change the browser port, or `--branch NAME` to select an existing terminal branch. The browser and terminal share the same database. Optional `pip install .` installs `dao` and `dao-terminal`.
+Optional: `pip install .` adds the `dao` and `dao-terminal` commands. For browser launches, add `--open-browser` to open the workspace automatically, or `--port 9000` to choose another port.
 
-## Windows executable
+### Windows executable
 
-Get the current Windows x64 Dao package from the [Windows workflow](https://github.com/Virgo-3/Dao/actions/workflows/windows-build.yml). Tagged builds are published under [Releases](https://github.com/Virgo-3/Dao/releases). Extract the ZIP and open PowerShell in that folder:
+Download the current `Dao-windows-x64` artifact from the [Windows build workflow](https://github.com/Virgo-3/Dao/actions/workflows/windows-build.yml), or a tagged package from [Releases](https://github.com/Virgo-3/Dao/releases). Extract the ZIP and open PowerShell in that folder:
 
 ```powershell
 .\Dao.exe
 ```
 
-The executable starts the terminal and includes Python. To open the browser workspace:
+Python is bundled. To use the browser workspace:
 
 ```powershell
 .\Dao.exe --web --open-browser
 ```
 
-Dao saves executable state in `%LOCALAPPDATA%\Dao\state.sqlite3`. The executable is unsigned and the ZIP contains `SHA256SUMS`. See the [Windows guide](docs/windows.md) for launch, verification, and build instructions.
+The executable is unsigned; the package includes `SHA256SUMS` for verification. See the [Windows guide](docs/windows.md) for checksums and build instructions.
 
-Existing databases remain in place, including any writing work saved by earlier interfaces. To open one in Dao, pass its path with `--db PATH`.
+## Try another direction
 
-## Try a branch
-
-In the terminal, type a message to converse, then try:
+Start the terminal, type a message, then try:
 
 ```text
-/remember approach=Prefer reversible experiments
-/decide
+/remember plan=Compare options before committing
 /branch experiment
-/history
+/remember plan=Try a small pilot
+/decide
 /switch main
-/usage
-/verify
+/memory
 ```
 
-`/branch experiment` creates a branch from the viewed checkpoint. Subsequent changes stay on that branch. `/restore ID_PREFIX` restores a reachable earlier checkpoint as a new revision. `/help` lists commands; `/quit` exits. See the [terminal guide](docs/terminal.md) for decision, relationship, audit, and artifact JSON imports.
+The `experiment` branch keeps the pilot plan and its decision result. Back on `main`, `/memory` shows the original plan. Each branch carries its own messages, memory, decisions, relationships, audits, and saved content.
 
-In the browser, open **Tools** for **Decision**, **Relationships**, **Audit**, and **Usage**. Review a decision summary, expand its model to edit the JSON, or inspect beliefs, evidence, usage, memory, and artifacts. On smaller screens, **Back to conversation** (shown as **← Chat** on phones) returns to the conversation.
+Use `/history` to inspect saved revisions and `/restore ID_PREFIX` to restore a reachable checkpoint as a new revision. Earlier history and recorded usage remain available. `/help` lists commands; `/quit` exits.
+
+In the browser, use the branch sidebar and the **Decision**, **Relationships**, **Audit**, and **Usage** tabs. The header provides export and integrity checks. See the [terminal guide](docs/terminal.md) for commands and JSON imports.
+
+## What you can work with
+
+| Tool | What it does |
+| --- | --- |
+| **History and branches** | Save checkpoints, explore alternatives independently, and restore earlier state. |
+| **Decisions** | Compare acting, waiting for more information, and abstaining using explicit scenarios, probabilities, payoffs, costs, and reversibility. |
+| **Relationships** | Record directed relationships, assessed beliefs, and reported observations. Inspect coverage and unresolved conflicts. |
+| **Evidence review** | Review a claim under an explicit evidence policy. Save named content when the current verdict and relationship state permit it. |
+| **Usage** | Track token usage across branches, restores, and failed requests, with optional estimated costs. |
+
+The decision model can value waiting when an observation could change the best choice. Its result depends on the assumptions you enter. Relationship estimates describe reported associations, and an audit verdict records whether submitted evidence meets the policy. You supply source reliability; the review does not independently establish factual truth.
+
+Unresolved severe relationship conflicts exclude their declared actions from decision calculations. Resolving a conflict requires a current evidence review; changing a belief alone leaves it open. The [relationship guide](docs/relationships.md) explains the workflow.
 
 ## Enable live AI
 
-Dao supports the OpenAI Responses API. Set process environment variables before launch:
+Dao supports the OpenAI Responses API. Set environment variables in the shell that launches it.
+
+**PowerShell**
 
 ```powershell
 $env:DAO_PROVIDER = "openai"
@@ -84,7 +91,7 @@ $env:OPENAI_API_KEY = "your-own-key"
 python -m dao --terminal
 ```
 
-On macOS or Linux:
+**macOS or Linux**
 
 ```sh
 export DAO_PROVIDER=openai
@@ -92,33 +99,52 @@ export OPENAI_API_KEY=your-own-key
 python -m dao --terminal
 ```
 
-Use `DAO_MODEL` to select a Responses API model available to your account. See [.env.example](.env.example) for all settings; Dao does not load `.env` files automatically.
+For the Windows package, replace the final command with `.\Dao.exe`. Use `DAO_MODEL` to select a Responses API model available to your account.
 
-Live inference sends the current conversation, saved memory, and relationship context to OpenAI with `store=false`. The API key is used for authentication and excluded from Dao's public configuration, saved state, and exports. Model requests have bounded token reservations and a read-only decision tool. The default lifetime token budget is **100,000**; configure `DAO_TOKEN_BUDGET` to change it. Optional input and output rates enable estimated dollar accounting. Estimates are not provider invoices, and offline demo token counts are estimates with zero monetary cost.
+Live AI sends the current conversation, saved memory, and relationship context to OpenAI. The API key is used for authentication and excluded from saved state, exports, and browser configuration. The model can request read-only decision evaluation; it has no shell or external-action tools.
 
-## How to interpret results
+| Setting | Purpose |
+| --- | --- |
+| `DAO_PROVIDER` | `demo` by default; set to `openai` for live AI. |
+| `DAO_MODEL` | Model to use for live requests. |
+| `DAO_TOKEN_BUDGET` | Lifetime token budget for the database; defaults to `100000`. |
+| `DAO_MAX_OUTPUT_TOKENS` | Output token limit per model request; defaults to `2048`. |
 
-Decisions depend on the scenarios and probabilities you supply. Relationship transition estimates describe reported associations. Coherence and coverage should be read together; coherence is **Not defined** when there is no positive or negative weight to compare.
+See [.env.example](.env.example) for all settings. Dao reads process environment variables and does **not** load `.env` files automatically. Set both `DAO_INPUT_USD_PER_MILLION` and `DAO_OUTPUT_USD_PER_MILLION` to enable estimated dollar accounting. These estimates are not provider invoices; demo usage has zero monetary cost.
 
-Unresolved severe conflicts exclude their declared actions from decision calculations. Changing a belief alone leaves a conflict open. Resolution requires fresh evidence review bound to the current relationship state. An audit verdict records whether submitted evidence meets the policy; source reliability and factual truth are not independently verified. Contradicting evidence prevents approval.
+## Where your work is saved
 
-Dao is a single-user application bound to `127.0.0.1`. Artifacts are content saved in its database; the model has no tools for shell execution or external actions. Restoring state cannot undo external actions. Hash-linked history supports consistency checks and does not authenticate changes against the database owner. See [security boundaries](SECURITY.md) for the trust model.
+| Launch method | Default database |
+| --- | --- |
+| From source | `.dao/state.sqlite3`, relative to the working directory |
+| Windows executable | `%LOCALAPPDATA%\Dao\state.sqlite3` |
 
-## Documentation and development
+Restarting Dao preserves your work. Use `--db PATH` to open an existing database or create a separate workspace. Point the browser and terminal at the same path to share state across interfaces.
 
-- [Project guide](docs/overview.md)
-- [Terminal commands](docs/terminal.md) and [Windows instructions](docs/windows.md)
-- [Relationships and conflict resolution](docs/relationships.md)
-- [Decision model](docs/decision-model.md) and [mathematical checks](docs/mathematical-checks.md)
-- [Architecture](docs/architecture.md) and [security boundaries](SECURITY.md)
+Dao runs as a single-user local application, bound to `127.0.0.1`. Restoring a checkpoint preserves history and usage; it cannot undo external actions. Integrity checks detect inconsistent edits, but do not authenticate changes against the database owner. Read the [security boundaries](SECURITY.md) for the trust model and the [architecture guide](docs/architecture.md#state-and-persistence) for backup details.
 
-Run the Python tests and browser JavaScript syntax check:
+## Documentation
+
+- [Project guide](docs/overview.md) — concepts, workflows, configuration, and limits
+- [Terminal guide](docs/terminal.md) — commands and JSON imports
+- [Windows guide](docs/windows.md) — downloads, verification, and packaging
+- [Relationships](docs/relationships.md) — beliefs, observations, conflicts, and resolution
+- [Decision model](docs/decision-model.md) — assumptions and calculations
+- [Mathematical checks](docs/mathematical-checks.md) — verification of the decision model
+- [Architecture](docs/architecture.md) — runtime, persistence, and policy
+- [Security boundaries](SECURITY.md) — access and trust assumptions
+
+## Development
+
+Run from the repository root:
 
 ```sh
 python -m unittest discover -s tests -v
 node --check dao/static/app.js
 ```
 
-Node is only needed for the syntax check. GitHub Actions runs tests on Windows and Linux, and a separate workflow builds and smoke-tests the Windows executable. Provider tests use synthetic responses; live inference and provider billing require separate verification.
+Node is needed only for the JavaScript syntax check. GitHub Actions runs the Python suite on Windows and Linux with Python 3.11 and 3.14. A separate workflow builds and smoke-tests `Dao.exe`. Provider tests use synthetic responses; live inference and provider billing need separate verification.
 
-Dao is available under the [MIT license](LICENSE).
+## License
+
+[MIT](LICENSE).

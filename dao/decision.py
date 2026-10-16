@@ -21,6 +21,8 @@ from typing import Any
 
 
 _SUM_TOLERANCE = 1e-9
+_UTILITY_TIE_TOLERANCE = 1e-12
+_ROUNDOFF_TOLERANCE = 8 * math.ulp(1.0)
 MAX_DECISION_ITEMS = 64
 MAX_DECISION_WORK = 250_000
 MAX_NAME_LENGTH = 200
@@ -176,8 +178,15 @@ def _score(action: dict[str, Any], probabilities: list[float], model: dict[str, 
                                 - irreversibility_cost, "net outcome"))
     expected_payoff = _sum((p * value for p, value in zip(probabilities, action["payoffs"])), "expected payoff")
     expected_net = _sum((p * value for p, value in zip(probabilities, outcomes)), "expected net payoff")
-    variance = _sum((p * _finite((value - expected_net) ** 2, "outcome variance")
-                     for p, value in zip(probabilities, outcomes) if p > 0), "outcome variance")
+    # Center before averaging: a rounded mean near a large common offset can
+    # otherwise add an entire unit (or more) to every squared deviation.
+    reference = next(value for p, value in zip(probabilities, outcomes) if p > 0)
+    shifted = [(p, _finite(value - reference, "centered outcome"))
+               for p, value in zip(probabilities, outcomes) if p > 0]
+    mass = _sum((p for p, _ in shifted), "probability mass")
+    shifted_mean = _sum((p * value for p, value in shifted), "centered mean") / mass
+    variance = _sum((p * _finite((value - shifted_mean) ** 2, "outcome variance")
+                     for p, value in shifted), "outcome variance")
     risk_penalty = _finite(model["risk_aversion"] * variance, "risk penalty")
     downside_probability = _sum((p for p, loss in zip(probabilities, losing) if loss), "downside probability")
     return {
@@ -195,15 +204,23 @@ def _score(action: dict[str, Any], probabilities: list[float], model: dict[str, 
     }
 
 
-def _best(scores: list[dict[str, Any]]) -> tuple[dict[str, Any] | None, float]:
-    """Prefer abstention at zero, then reversibility for numerical action ties."""
-    maximum = max([0.0, *(score["utility"] for score in scores)])
-    if maximum <= 0:
+def _best(scores: list[dict[str, Any]], *, margin: float = 0.0) -> tuple[dict[str, Any] | None, float]:
+    """Tie-break positive actions, keeping buffer-clearing choices eligible."""
+    eligible = [score for score in scores if score["utility"] > 0]
+    if not eligible:
         return None, 0.0
-    tied = [score for score in scores
-            if math.isclose(score["utility"], maximum, rel_tol=1e-12, abs_tol=1e-12)]
+    above_margin = [score for score in eligible if score["utility"] > margin]
+    eligible = above_margin or eligible
+    maximum = max(score["utility"] for score in eligible)
+    tied = [score for score in eligible
+            if math.isclose(score["utility"], maximum, rel_tol=_UTILITY_TIE_TOLERANCE, abs_tol=0)]
     best = max(tied, key=lambda score: score["reversibility"])
-    return best, maximum
+    return best, best["utility"]
+
+
+def _roundoff_equal(left: float, right: float) -> bool:
+    """Ignore a few floating-point rounding units, without a utility-unit floor."""
+    return math.isclose(left, right, rel_tol=_ROUNDOFF_TOLERANCE, abs_tol=0)
 
 
 def evaluate(payload: Any, *, blocked_actions: dict[str, list[str]] | None = None) -> dict[str, Any]:
@@ -229,7 +246,7 @@ def evaluate(payload: Any, *, blocked_actions: dict[str, list[str]] | None = Non
     prior = [scenario["probability"] for scenario in model["scenarios"]]
     try:
         scores = [_score(action, prior, model) for action in model["actions"]]
-        best, baseline = _best(scores)
+        best, baseline = _best(scores, margin=model["confidence_margin"])
         signal_analysis = []
         if model["signals"]:
             optimized_terms = []
@@ -256,14 +273,16 @@ def evaluate(payload: Any, *, blocked_actions: dict[str, list[str]] | None = Non
             after_signal = _sum(optimized_terms, "expected utility after signal")
         else:
             after_signal = baseline
-        information_value = max(0.0, _finite(after_signal - baseline, "expected value of information"))
+        information_value = (0.0 if _roundoff_equal(after_signal, baseline) else
+                             max(0.0, _finite(after_signal - baseline, "expected value of information")))
         total_waiting_cost = _sum((model["waiting_cost"], model["observation_cost"], model["delay_cost"]), "total waiting cost")
         wait_utility = _finite(model["discount"] * after_signal - total_waiting_cost, "wait utility")
     except OverflowError as exc:
         raise ValueError("decision calculations exceed the finite numerical range") from exc
 
     margin = model["confidence_margin"]
-    if wait_utility > _finite(baseline + margin, "baseline plus confidence margin"):
+    wait_threshold = _finite(baseline + margin, "baseline plus confidence margin")
+    if wait_utility > wait_threshold and not _roundoff_equal(wait_utility, wait_threshold):
         recommendation = "wait"
         selected_action = None
         reason = "The discounted value of observing the modeled signal exceeds the best immediate option plus the utility buffer."
@@ -300,6 +319,8 @@ def evaluate(payload: Any, *, blocked_actions: dict[str, list[str]] | None = Non
             "Omitted reversibility defaults to zero; unknown recovery receives no reversibility credit.",
             "Signals are mutually exclusive and exhaustive; posterior probabilities use Bayes' rule.",
             "Abstention has zero utility; action ties prefer reversibility and then input order.",
+            "Action ties use relative tolerance 1e-12 among positive eligible actions; returned utilities belong to the selected actions.",
+            "Wait comparisons and zero information values allow eight binary64 epsilon units of relative rounding error, with no absolute utility floor.",
             "Confidence margin is a utility buffer, not a confidence interval.",
             "Without explicit signals, waiting has zero information value and never assumes uncertainty falls on its own.",
             "Observation and delay costs are additional utility costs; waiting_cost covers other costs and must not double-count them.",

@@ -82,6 +82,86 @@ class DecisionTests(unittest.TestCase):
         self.assertEqual(score["reversibility"], 0)
         self.assertEqual(score["irreversibility_cost"], 6)
 
+    def test_near_zero_ties_cannot_select_a_nonpositive_action(self):
+        for scale in (1e-200, 1, 1e200):
+            for losing in (0, -1e-13):
+                with self.subTest(scale=scale, losing=losing):
+                    payload = {"scenarios": [{"name": "certain", "probability": 1}], "actions": [
+                        {"name": "good", "payoffs": [1e-13 * scale], "reversibility": 0},
+                        {"name": "bad", "payoffs": [losing * scale], "reversibility": 1}],
+                        "signals": [{"name": "observed", "likelihoods": [1]}]}
+                    result = evaluate(payload)
+                    self.assertEqual(result["recommendation"], "act")
+                    self.assertEqual(result["selected_action"], "good")
+                    self.assertEqual(result["baseline_utility"], result["scores"][0]["utility"])
+                    self.assertEqual(result["signal_analysis"][0]["selected_action"], "good")
+                    self.assertEqual(result["signal_analysis"][0]["optimized_utility"], 1e-13 * scale)
+
+    def test_reversibility_tie_reports_the_selected_actions_own_utility(self):
+        payload = {"scenarios": [{"name": "certain", "probability": 1}], "actions": [
+            {"name": "higher", "payoffs": [1], "reversibility": 0},
+            {"name": "easier", "payoffs": [1 - 5e-13], "reversibility": 1}],
+            "signals": [{"name": "observed", "likelihoods": [1]}]}
+        result = evaluate(payload)
+        self.assertEqual(result["selected_action"], "easier")
+        self.assertEqual(result["baseline_utility"], result["scores"][1]["utility"])
+        self.assertEqual(result["signal_analysis"][0]["selected_action"], "easier")
+        self.assertEqual(result["signal_analysis"][0]["optimized_utility"], result["scores"][1]["utility"])
+
+    def test_reversibility_tie_cannot_cross_the_initial_utility_buffer(self):
+        for scale in (1e-100, 1, 1e100):
+            payload = {"scenarios": [{"name": "certain", "probability": 1}], "actions": [
+                {"name": "eligible", "payoffs": [(1 + 5e-13) * scale], "reversibility": 0},
+                {"name": "at_buffer", "payoffs": [scale], "reversibility": 1}],
+                "confidence_margin": scale}
+            with self.subTest(scale=scale):
+                result = evaluate(payload)
+                self.assertEqual(result["recommendation"], "act")
+                self.assertEqual(result["selected_action"], "eligible")
+                self.assertGreater(result["baseline_utility"], payload["confidence_margin"])
+
+    def test_split_uninformative_signal_cannot_create_a_wait_advantage(self):
+        for scale in (1e-200, 1, 1e200):
+            payload = {"scenarios": [{"name": "certain", "probability": 1}],
+                "actions": [{"name": "act", "payoffs": [3 * scale]}],
+                "signals": [{"name": "a", "likelihoods": [.2]}, {"name": "b", "likelihoods": [.8]}]}
+            with self.subTest(scale=scale):
+                result = evaluate(payload)
+                self.assertEqual(result["recommendation"], "act")
+                self.assertEqual(result["expected_value_of_information"], 0)
+
+    def test_real_information_advantages_survive_small_scales_and_close_scores(self):
+        payload = simple_payload()
+        payload["signals"] = [{"name": "up", "likelihoods": [1, 0]}, {"name": "down", "likelihoods": [0, 1]}]
+        payload["actions"][0]["payoffs"] = [1e-200, -1e-200]
+        result = evaluate(payload)
+        self.assertEqual(result["recommendation"], "wait")
+        self.assertEqual(result["expected_value_of_information"], 5e-201)
+        payload["actions"][0]["payoffs"] = [1 - 1e-6, 1 + 1e-6]
+        payload["risk_aversion"] = 1
+        result = evaluate(payload)
+        self.assertEqual(result["recommendation"], "wait")
+        self.assertGreater(result["expected_value_of_information"], 9e-13)
+
+    def test_variance_is_invariant_to_large_representable_common_offsets(self):
+        payload = simple_payload()
+        for payoffs in ([0, 2], [2, 0], [1e16, 1e16 + 2], [1e16 + 2, 1e16]):
+            with self.subTest(payoffs=payoffs):
+                payload["actions"][0]["payoffs"] = payoffs
+                self.assertEqual(evaluate(payload)["scores"][0]["variance"], 1)
+        payload["actions"] = [{"name": "risky", "payoffs": [1e16, 1e16 + 2]},
+                              {"name": "safe", "payoffs": [4e15, 4e15]}]
+        payload["risk_aversion"] = 4e15
+        result = evaluate(payload)
+        self.assertEqual(result["selected_action"], "risky")
+        self.assertEqual(result["scores"][0]["risk_penalty"], 4e15)
+
+    def test_zero_probability_outcome_does_not_anchor_variance(self):
+        payload = {"scenarios": [{"name": "impossible", "probability": 0},
+                                  {"name": "a", "probability": .5}, {"name": "b", "probability": .5}],
+                   "actions": [{"name": "act", "payoffs": [1e308, 0, 2]}]}
+        self.assertEqual(evaluate(payload)["scores"][0]["variance"], 1)
+
     def test_risk_penalty_recomputes_under_each_posterior(self):
         payload = simple_payload()
         payload["risk_aversion"] = 0.01

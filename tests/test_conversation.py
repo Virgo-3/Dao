@@ -86,6 +86,41 @@ class ConversationTests(unittest.TestCase):
                 say(current, "Why did we decide that?")
                 self.assertIn("No supporting reason was recorded", prepare(current)["reply"])
 
+    def test_same_message_changes_require_clarification_before_capture(self):
+        for text in (
+            "We chose SQLite because it works offline. Actually, we changed our minds and will use Postgres instead.",
+            "We chose SQLite because it works offline; but we haven't decided yet.",
+            "We chose SQLite because it works offline, but we will use Postgres.",
+            "We chose SQLite because it works offline. On second thought, scratch that.",
+            "We chose SQLite because it works offline. We won't use it.",
+            "Remember that we chose SQLite because it works offline. Actually, scratch that.",
+        ):
+            with self.subTest(text=text):
+                current = state(text)
+                before = deepcopy(current)
+                result = prepare(current)
+                self.assertIn("Which decision", result["reply"])
+                self.assertEqual(result["activities"], [])
+                self.assertIsNone(result["navigation"])
+                self.assertEqual(current, before)
+                for kind, stance in (("decision", None), ("claim", "decided")):
+                    submitted = node(current, kind=kind, stance=stance)
+                    # Even an exact citation of just the original commitment
+                    # cannot bypass the retraction elsewhere in the message.
+                    quote = text[:text.index(" because")]
+                    submitted["node"]["citations"] = [{**citation(current), "end": len(quote), "quote": quote}]
+                    with self.assertRaisesRegex(ValueError, "affirmative decision"):
+                        capture(current, payload(submitted))
+                    self.assertEqual(current, before)
+
+    def test_multiple_sentences_without_a_new_choice_keep_the_stated_decision(self):
+        current = state("We chose SQLite because it works offline. That matters for our field team.")
+        result = prepare(current)
+        self.assertEqual(result["activities"][0]["label"], "Decision remembered")
+        decision = next(n for n in current["relationships"]["nodes"].values() if n["kind"] == "decision")
+        self.assertEqual(decision["label"], "SQLite")
+        self.assertEqual(decision["citations"][0]["quote"], current["messages"][0]["content"])
+
     def test_actual_decision_correction_can_replace_only_an_explicitly_named_choice(self):
         current = state()
         prepare(current)

@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+from fractions import Fraction
 from typing import Any
 
 
@@ -93,11 +94,15 @@ def adjudicate(payload: Any) -> dict[str, Any]:
             contradictions.append(item)
         else:
             neutral_count += 1
-    support_score = (math.fsum(support_sources.values()) / len(support_sources)
-                     if support_sources else 0.0)
+    # Interpret the normalized numbers' shortest decimal representations exactly.
+    # Comparing rationals avoids both binary threshold drift and a permissive
+    # epsilon that could approve genuinely insufficient evidence.
+    exact_score = (sum((Fraction(str(value)) for value in support_sources.values()), Fraction(0))
+                   / len(support_sources) if support_sources else Fraction(0))
+    support_score = float(exact_score)
     source_count = len(support_sources)
     enough_sources = source_count >= model["require_sources"]
-    enough_reliability = support_score >= model["threshold"]
+    enough_reliability = exact_score >= Fraction(str(model["threshold"]))
     reasons = []
     if contradictions:
         verdict = "contested"
@@ -110,7 +115,7 @@ def adjudicate(payload: Any) -> dict[str, Any]:
     if not enough_sources:
         reasons.append(f"Only {source_count} distinct supporting sources were submitted; {model['require_sources']} are required.")
     if not enough_reliability:
-        reasons.append(f"Supporting reliability {support_score:.3f} is below the required {model['threshold']:.3f}.")
+        reasons.append(f"The exact decimal mean of supporting reliabilities is below the required threshold {model['threshold']}.")
     return {
         "verdict_id": verdict_id,
         "claim": model["claim"],
@@ -132,6 +137,7 @@ def adjudicate(payload: Any) -> dict[str, Any]:
             "Evidence content, stance, source labels, and reliability are caller supplied; this rule does not verify their truth.",
             "Distinct labels do not prove source independence; sources are compared after trimming and casefolding.",
             "Supporting reliability is the mean of each distinct source's minimum submitted supporting reliability.",
+            "Thresholds compare exact ratios of normalized numbers' shortest decimal representations; the displayed score is rounded to a float.",
             "Every contradiction vetoes approval; neutral evidence supplies no support.",
             "A supported verdict authorizes the local policy gate and is not factual proof or external action authorization.",
         ],

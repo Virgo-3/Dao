@@ -38,6 +38,15 @@ These common phrases work in the offline demo without a model request. The offli
 
 Local recognition covers these patterns, rather than every paraphrase. Quoted or hypothetical text does not trigger local actions. Live AI can handle broader conversation and capture useful routine context through its bounded memory tool. When several advanced suggestions are pending, Dao lists them by number; say “Keep suggestion 2” or “Reject suggestion 2” to select one. The optional proposal details and terminal commands can also review a specific ID. A suggestion based on an older graph needs to be rejected and staged again.
 
+If one message includes competing choices or a later retraction, Dao asks which
+decision and reason to remember before saving any semantic notes. For example,
+“We chose SQLite because it works offline. Actually, we changed our minds and
+will use Postgres instead” needs clarification. The original message stays in
+the conversation, and neither choice becomes settled memory. The live memory
+tool also checks the whole message, even when a citation covers only its first
+clause. A clear follow-up such as “We chose Postgres because we need multiple
+writers” records the current choice with its own source passage.
+
 ## What is remembered
 
 Semantic notes distinguish `mentioned`, `believed`, `considering`, and `decided`. A passing mention or tentative option is not a commitment. Routine capture records new nodes and connections cited only to the latest user message. It does not set belief probabilities, record reported observations, change action scopes or severe conflicts, resolve conflicts, or perform external actions.

@@ -31,6 +31,18 @@ def _plain(value):
     return value.replace("’", "'").replace("‘", "'").strip()
 
 
+def _conflicting_decision(text):
+    """Conservatively defer multiple commitments or a later retraction."""
+    commitments = list(re.finditer(r"\b(?:" + _CHOICE_PREFIX + r")\b", text, re.I))
+    if not commitments:
+        return False
+    tail = text[commitments[0].end():]
+    return len(commitments) > 1 or bool(re.search(
+        r"\b(?:actually|on second thought|scratch that|never mind|changed (?:our|my) minds?"
+        r"|(?:haven't|have not) decided|(?:didn't|did not) choose"
+        r"|(?:won't|will not|no longer) use|(?:aren't|are not|am not) using)\b", tail, re.I))
+
+
 def _flags(content):
     text = _plain(content)
     # Evaluate the commitment clause, rather than mistaking an uncertain reason
@@ -45,8 +57,10 @@ def _flags(content):
     tentative = bool(re.search(r"\b(?:maybe|perhaps|might|may|could|would|considering|possibly|undecided|tentative)\b|\bnot sure\b", clause, re.I))
     negative = bool(re.search(r"\b(?:didn't|did not|don't|do not|haven't|have not|hasn't|has not|never|not|no)\b", clause, re.I))
     affirmative = bool(re.match(r"^(?:" + _CHOICE_PREFIX + r")\b", text, re.I))
+    conflicting = _conflicting_decision(text)
     return {"quoted": quoted, "hypothetical": hypothetical, "tentative": tentative,
-            "negative": negative, "decided": affirmative and not (quoted or hypothetical or tentative or negative)}
+            "negative": negative, "conflicting_decision": conflicting,
+            "decided": affirmative and not (quoted or hypothetical or tentative or negative or conflicting)}
 
 
 def _stance(record, content):
@@ -57,6 +71,10 @@ def _stance(record, content):
     if record.get("kind") == "decision" or supplied == "decided":
         if not flags["decided"]:
             raise ValueError("A decided record requires an affirmative decision in the current user message")
+    if flags["conflicting_decision"]:
+        if supplied in ("believed", "considering"):
+            raise ValueError("Conflicting choices require clarification before capture")
+        return "mentioned"
     if supplied in ("believed", "considering") and (flags["quoted"] or flags["hypothetical"]):
         raise ValueError("Quoted or hypothetical statements can be captured only as mentioned")
     if supplied == "believed" and flags["tentative"]:
@@ -296,6 +314,9 @@ def prepare(state):
     plain = _plain(content)
     flags = _flags(content)
     if flags["quoted"] or flags["hypothetical"]:
+        return result
+    if flags["conflicting_decision"]:
+        result["reply"] = "I’m unsure which choice is current. Which decision and reason should I remember?"
         return result
     intent = re.sub(r"[.!?]\s*$", "", plain)
     if re.fullmatch(r"(?:why did we decide that|why did we choose that|what was our reasoning)", intent, re.I):

@@ -101,6 +101,11 @@ of that trigger. The irreversibility charge applies in every scenario. Scores
 return the mean gross payoff, all charges, mean net payoff, variance, risk
 penalty, and resulting utility. Abstention has zero utility.
 
+Variance is computed after shifting outcomes by a positive-probability reference
+outcome. Its mean and squared deviations are evaluated in that shifted frame,
+so rounding a large common offset into the reported mean does not inflate risk.
+Zero-probability outcomes do not participate in this calculation.
+
 The engine rejects numerical overflow instead of returning infinity or NaN.
 Even finite inputs can overflow when computing squared deviations, so extremely
 large utility scales should be rescaled.
@@ -139,8 +144,19 @@ statistical confidence interval:
 3. Otherwise recommend `abstain`.
 
 Equal wait and immediate utilities retain the immediate choice. Action utilities
-within numerical tie tolerance (`1e-12` relative or absolute) prefer higher
-reversibility, then caller input order. `selected_action` is `null` for waiting
+within relative tie tolerance `1e-12` prefer higher reversibility, then caller
+input order. Only positive actions enter a tie; for the initial choice, actions
+that clear the confidence margin take precedence over those that do not.
+The returned baseline and posterior optimized utilities are the selected
+actions' own scores, so the ideal maxima above may differ by the tie tolerance.
+There is no absolute tie tolerance tied to a particular utility unit.
+
+Wait comparisons treat relative differences within `8 * 2^-52` as roundoff ties;
+EVSI is reported as zero when the before/after values agree within that same
+tolerance. This removes spurious wait advantages from summing identical signal
+options. No absolute tolerance is used, so small positive utilities and real
+information gains near zero remain eligible at any utility scale.
+`selected_action` is `null` for waiting
 and abstention; `best_immediate_action` remains available for comparison. The
 posterior table uses the zero-valued abstention rule to show an information
 contingent policy; confidence margin applies to the initial recommendation.
@@ -200,6 +216,12 @@ supporting source, take its **lowest** submitted supporting reliability; average
 those values to compute `support_score`. Duplicate submissions cannot inflate
 support or source count. Source labels cannot establish actual independence.
 
+For threshold comparisons, each normalized float is interpreted as the exact
+decimal in its shortest round-trip representation. The mean and comparison use
+rational arithmetic; only the displayed `support_score` is rounded to a float.
+For example, reliabilities `0.1` and `0.7` meet threshold `0.4` exactly. A mean
+strictly below the threshold is rejected without an epsilon allowance.
+
 | Condition | Verdict | `allowed` |
 | --- | --- | --- |
 | Any submitted contradiction, even reliability zero | `contested` | `false` |
@@ -221,6 +243,11 @@ and source-label case remain part of the digest. Reordering evidence or changing
 its content therefore changes the identifier even when the verdict is identical.
 This identifier binds the audit to the submitted evidence. It does not establish
 whether the evidence is true.
+
+Existing saved verdicts keep their original results. Pending conflict resolutions
+must use a verdict re-adjudicated under the current rule; corrected scores and
+precision assumptions can change the full verdict even when its input digest
+is unchanged.
 
 ## Boundaries
 

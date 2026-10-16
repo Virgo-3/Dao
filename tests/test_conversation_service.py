@@ -1,4 +1,5 @@
 from copy import deepcopy
+from contextlib import closing
 import unittest
 from unittest.mock import patch
 
@@ -56,6 +57,35 @@ class ConversationalServiceTests(unittest.TestCase):
         self.assertTrue(activity["previous_node_ids"])
         self.assertTrue(activity["citations"])
         self.assertEqual(graph["conflicts"], {})
+
+    def test_same_turn_retraction_is_clarified_offline_and_with_a_live_provider(self):
+        message = "We chose SQLite because it works offline. Actually, we changed our minds and will use Postgres instead."
+        for config in (Config(), Config(provider="openai", api_key="test-only", token_budget=1)):
+            with self.subTest(provider=config.provider), closing(Store(":memory:")) as store:
+                app = Dao(store, config)
+
+                def chat(text):
+                    return list(app.chat({"message": text, "expected_head": store.head()["id"]}))
+
+                with patch("dao.service.openai_stream") as provider:
+                    events = chat(message)
+                    self.assertEqual(events[-1]["type"], "done")
+                    state = store.head()["state"]
+                    self.assertNotIn("relationships", state)
+                    self.assertNotIn("activities", state["messages"][-1])
+                    self.assertFalse(any(event["type"] == "activity" for event in events))
+                    self.assertIn("Which decision", state["messages"][-1]["content"])
+                    answer = chat("Why did we decide that?")[-1]["head"]["state"]["messages"][-1]["content"]
+                    self.assertIn("don’t have a settled decision", answer)
+                    chat("We chose Postgres because multiple people need to edit at once.")
+                    answer = chat("Why did we decide that?")[-1]["head"]["state"]["messages"][-1]["content"]
+                    self.assertIn("Postgres", answer)
+                    self.assertNotIn("SQLite", answer)
+                    decision = next(n for n in store.head()["state"]["relationships"]["nodes"].values() if n["kind"] == "decision")
+                    self.assertIn("We chose Postgres", decision["citations"][0]["quote"])
+                    provider.assert_not_called()
+                self.assertEqual(store.usage()["entries"], [])
+                self.assertTrue(store.verify()["ok"])
 
     def test_conversational_branch_and_switch_preserve_each_branch_context(self):
         self.chat("We chose SQLite because this must work offline.")

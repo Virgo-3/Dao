@@ -60,6 +60,44 @@ class AuditTests(unittest.TestCase):
         self.assertEqual(result["verdict"], "insufficient")
         self.assertFalse(result["allowed"])
 
+    def test_decimal_average_meets_exact_threshold_without_binary_drift(self):
+        payload = supported_payload()
+        payload["threshold"] = .4
+        payload["evidence"][0]["reliability"] = .1
+        payload["evidence"][1]["reliability"] = .7
+        result = adjudicate(payload)
+        self.assertTrue(result["allowed"])
+        self.assertEqual(result["metrics"]["support_score"], .4)
+        self.assertFalse(any("below" in reason for reason in result["reasons"]))
+        normalized = {**payload, "require_sources": 2}
+        canonical = json.dumps(normalized, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        self.assertEqual(result["verdict_id"], hashlib.sha256(canonical.encode()).hexdigest())
+
+    def test_decimal_threshold_has_no_permissive_epsilon(self):
+        payload = supported_payload()
+        payload["threshold"] = .4
+        payload["evidence"][0]["reliability"] = .1
+        payload["evidence"][1]["reliability"] = math.nextafter(.7, 0)
+        self.assertFalse(adjudicate(payload)["allowed"])
+        payload["evidence"][1]["reliability"] = .7
+        payload["threshold"] = math.nextafter(.4, 1)
+        self.assertFalse(adjudicate(payload)["allowed"])
+
+    def test_decimal_boundary_still_uses_duplicate_minima_and_contradiction_veto(self):
+        payload = supported_payload()
+        payload["threshold"] = .4
+        payload["evidence"][0]["reliability"] = .1
+        payload["evidence"][1]["reliability"] = .7
+        payload["evidence"].append({**payload["evidence"][0], "source": " TEST REPORT ", "reliability": 1})
+        result = adjudicate(payload)
+        self.assertTrue(result["allowed"])
+        self.assertEqual(result["metrics"]["supporting_source_count"], 2)
+        self.assertEqual(result["metrics"]["support_score"], .4)
+        payload["evidence"].append({"source": "veto", "content": "Conflicting report", "stance": "contradict", "reliability": 0})
+        result = adjudicate(payload)
+        self.assertFalse(result["allowed"])
+        self.assertEqual(result["verdict"], "contested")
+
     def test_hash_covers_exact_normalized_payload_and_changes_with_evidence(self):
         payload = supported_payload()
         before = copy.deepcopy(payload)

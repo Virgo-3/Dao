@@ -31,10 +31,6 @@ These common phrases work in the offline demo without a model request. The offli
 | “Actually, …” | Records an updated assumption and preserves earlier reasoning. |
 | “Why did we decide that?” | Recalls the latest recorded settled decision and its dependency reasons. |
 | “What do you remember?” | Lists recent semantic notes with their recorded stances, plus saved memory notes. |
-| “Show me what you remember” or “Open memory” | Recalls notes and opens Memory in the browser. |
-| “Show the assumptions behind that decision” | Recalls the latest settled choice and its recorded dependencies, then focuses them in Memory. |
-| “Open the decision tool,” “Open structure,” or “Open audit” | Opens the corresponding browser tool. |
-| “Show my usage” or “Open tools” | Opens Usage or the Tools menu in the browser. |
 | “Let's explore another direction” | Creates a safely named alternative and switches to it. |
 | “Create a branch called experiment” | Creates and switches to that new branch, if its name is available. |
 | “Switch to experiment” or “Go back to main” | Continues an existing branch's own saved context. |
@@ -51,27 +47,23 @@ tool also checks the whole message, even when a citation covers only its first
 clause. A clear follow-up such as “We chose Postgres because we need multiple
 writers” records the current choice with its own source passage.
 
-View requests are recognized locally and save a reply with a `view_requested` activity. The browser opens a known view only after the turn completes successfully; the same activity can reopen it later. They do not evaluate decisions, approve evidence, accept suggestions, or modify the graph. In the terminal, the reply still recalls or describes the requested context, without opening browser controls. Quoted, hypothetical, literal, or compound action requests do not execute these view intents. Unsupported paraphrases remain provider conversation.
-
 ## What is remembered
 
 Semantic notes distinguish `mentioned`, `believed`, `considering`, and `decided`. A passing mention or tentative option is not a commitment. Routine capture records new nodes and connections cited only to the latest user message. It does not set belief probabilities, record reported observations, change action scopes or severe conflicts, resolve conflicts, or perform external actions.
 
 Reasons and corrections remain inspectable. A `depends_on` link says its source depends on its target. A correction can identify earlier dependent decisions worth reconsidering, but does not prove a contradiction or invalidate them automatically. A replacement link requires explicit support, such as wording that names the prior assumption being replaced. Recorded conditions are notes to revisit, not automatic monitors.
 
-Use **View in Memory** beside an activity to focus its saved note. An explicitly replaced note opens inside **Earlier context** when needed. Ordinary remembering does not automatically open a side panel.
-
 Routine memory and recall activities are saved with completed assistant replies. Their source links let you inspect the original passages. Failed turns keep a labeled partial reply and usage evidence, while their graph and proposal changes are rolled back; no successful activity is announced for an uncommitted change. Explicit `/remember key=value` memory remains available separately for users who want it.
 
-## History, Memory, and Tools
+## History, context, and tools
 
-The browser opens on the conversation with **History** and **Memory** closed. History exposes branches and revisions. Memory is a dedicated contextual view; the quiet **Tools** menu holds the optional advanced controls.
+The browser keeps **History** and **Context & tools** closed initially. History exposes branches and revisions.
 
-**Memory** shows settled decisions, tentative possibilities, working context, and other mentions. Decision cards show their dependency reasons. Later corrections flag affected decisions for reconsideration without changing their stance. Explicitly replaced notes remain under **Earlier context**, and **Original words** links back to the exact conversation passage. Named memory entries appear separately.
+**Context & tools → Memory** shows settled decisions, tentative possibilities, working context, and other mentions. Decision cards show their dependency reasons. Later corrections flag affected decisions for reconsideration without changing their stance. Explicitly replaced notes remain under **Earlier context**, and **Original words** links back to the exact conversation passage. Named memory entries appear separately.
 
-**Tools → Structure** holds advanced proposals and relationship review; **Decision**, **Audit**, and **Usage** provide numeric comparisons, evidence review, and accounting. Export and integrity checks are in the Tools menu. Advanced tabs appear only while using a tool, separately from Memory.
+The **Structure** tab holds advanced proposals and relationship review; **Decision**, **Audit**, and **Usage** provide numeric comparisons, evidence review, and accounting. Export and integrity checks are above the tabs.
 
-The current branch is always visible above the conversation. Starter prompts fill an editable message; nothing is saved until you send it. On smaller screens, Memory or a tool fills the workspace and **← Conversation** returns to the chat. Advanced JSON editors and relationship diagnostics stay collapsed until needed. The terminal offers the same conversation behavior plus [optional commands](terminal.md).
+The current branch is always visible above the conversation. Starter prompts fill an editable message; nothing is saved until you send it. On smaller screens, Context & tools fills the workspace and **Back to conversation** returns to the chat. Advanced JSON editors and relationship diagnostics stay collapsed until needed. The terminal offers the same conversation behavior plus [optional commands](terminal.md).
 
 A new alternative begins from the completed source turn. A switch to an existing branch keeps that branch's graph, memory, and other semantic state; only the control message and reply are appended there. Finalizing the source reply and destination navigation is atomic. This prevents a source branch's notes from overwriting the destination. Each branch remains available in History, and restoring a reachable checkpoint creates a new revision while retaining history and usage.
 

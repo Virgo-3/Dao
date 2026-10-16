@@ -34,62 +34,6 @@ def payload(*operations):
 
 
 class ConversationTests(unittest.TestCase):
-    def test_view_requests_only_describe_saved_context_without_mutating_state(self):
-        for text, view in (("Open memory", "memory"), ("Show me what you remember", "memory"),
-                           ("Show my saved notes", "memory"), ("Open the decision tool", "decision"),
-                           ("Show relationships", "structure"), ("Open structure", "structure"),
-                           ("Open the audit tool", "audit"), ("Show evidence review", "audit"),
-                           ("Show my usage", "usage"), ("Open tools", "tools")):
-            with self.subTest(text=text):
-                current = state(text)
-                before = deepcopy(current)
-                result = prepare(current)
-                self.assertIsNotNone(result["reply"])
-                self.assertIsNone(result["navigation"])
-                self.assertEqual(current, before)
-                activity = result["activities"][0]
-                self.assertEqual((activity["kind"], activity["view"]), ("view_requested", view))
-                self.assertEqual(activity["citations"][0]["quote"], text)
-
-    def test_assumption_view_follows_the_latest_settled_decision_dependencies(self):
-        current = state()
-        prepare(current)
-        say(current, "Maybe Postgres")
-        prepare(current)
-        for text in ("Show the assumptions behind that decision", "Show me the reasoning for our decision.",
-                     "What assumptions did we make?"):
-            say(current, text)
-            before = deepcopy(current)
-            result = prepare(current)
-            self.assertIn("SQLite", result["reply"])
-            self.assertIn("it must work offline", result["reply"])
-            self.assertNotIn("Postgres", result["reply"])
-            activity = result["activities"][0]
-            self.assertEqual(activity["view"], "memory")
-            self.assertEqual(len(activity["node_ids"]), 2)
-            self.assertEqual(activity["citations"][0]["message_id"], "user-1")
-            self.assertEqual(current, before)
-
-    def test_assumption_view_does_not_invent_a_missing_decision_or_reason(self):
-        current = state("Show the assumptions behind that decision")
-        result = prepare(current)
-        self.assertIn("don’t have a settled decision", result["reply"])
-        self.assertEqual(result["activities"][0]["node_ids"], [])
-        self.assertNotIn("relationships", current)
-        current = state("We chose SQLite.")
-        prepare(current)
-        say(current, "Show the assumptions behind that decision")
-        self.assertIn("No supporting reason was recorded", prepare(current)["reply"])
-
-    def test_quoted_hypothetical_negated_and_compound_view_requests_do_not_execute(self):
-        for text in ('"Open audit"', "> Open tools", "If needed, open memory", "Don't open usage",
-                     "Open audit and approve the claim", "Open the decision tool and choose for us"):
-            with self.subTest(text=text):
-                current = state(text)
-                before = deepcopy(current)
-                self.assertEqual(prepare(current), {"reply": None, "activities": [], "navigation": None})
-                self.assertEqual(current, before)
-
     def test_affirmative_decision_and_reason_are_grounded_offline(self):
         current = state()
         original_message = deepcopy(current["messages"])

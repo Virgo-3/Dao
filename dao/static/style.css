@@ -40,18 +40,6 @@ h1, h2, h3, h4, p { overflow-wrap: anywhere; }
 .dao-mark { width: 34px; height: 34px; flex-shrink: 0; border-radius: 5px; }
 .header-caption { color: var(--muted); font-size: 12px; border-left: 1px solid var(--line); padding-left: 24px; }
 .header-actions { display: flex; align-items: center; gap: 15px; margin-left: auto; }
-#memory-toggle[aria-expanded=true] { background: var(--raised); border-color: #b4bcaf; }
-.tools-menu { position: relative; z-index: 12; }
-.tools-menu > summary { display: flex; align-items: center; gap: 8px; list-style: none; min-height: 40px; padding: 8px; border-radius: 6px; font-size: 12px; color: var(--muted); }
-.tools-menu > summary::-webkit-details-marker { display: none; }
-.tools-menu > summary:hover, .tools-menu[open] > summary { background: var(--raised); color: var(--text); }
-.tools-menu-list { position: absolute; top: calc(100% + 8px); right: 0; width: min(280px, calc(100vw - 32px)); max-height: calc(100dvh - 100px); overflow-y: auto; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); box-shadow: 0 12px 32px #303e2b1c; }
-.tools-menu-list > p { margin: 7px 10px 8px; font-size: 9px; }
-.tools-menu-list button { display: block; width: 100%; min-height: 40px; padding: 10px; border-radius: 6px; background: none; text-align: left; font-size: 12px; }
-.tools-menu-list button:hover:not(:disabled) { background: var(--raised); }
-.tools-menu-list button span { display: block; margin-top: 2px; font-size: 10px; color: var(--muted); }
-.tools-menu-utilities { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 6px; }
-.tools-menu-utilities button { font-size: 11px; color: var(--muted); }
 .badge { display: inline-flex; align-items: center; gap: 7px; padding: 5px 10px; border-radius: 20px; background: #edf0e9; color: #4a6052; font-size: 11px; }
 .status-dot { width: 5px; height: 5px; flex-shrink: 0; background: #58775d; border-radius: 50%; }
 .quiet-button { background: transparent; font-size: 12px; padding: 8px; min-height: 36px; border-radius: 6px; }
@@ -128,10 +116,6 @@ h1, h2, h3, h4, p { overflow-wrap: anywhere; }
 .message-source-highlight { outline: 2px solid var(--accent); outline-offset: 6px; border-radius: 5px; }
 .message-content mark { color: var(--ink); background: #f7d49e; padding: 2px 0; }
 .message-activities { display: grid; gap: 4px; margin-top: 12px; }
-.activity-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 12px; }
-.activity-row .message-activity { flex: 1; min-width: min(160px, 100%); }
-.activity-row .message-activity[open] { flex-basis: 100%; }
-.activity-view-link { flex-shrink: 0; font-size: 10px; white-space: nowrap; }
 .message-activity { max-width: 100%; border-left: 2px solid #b3c2a6; padding-left: 11px; }
 .message-activity > summary { display: list-item; width: fit-content; max-width: 100%; padding: 3px 0; font-size: 11px; color: #52694c; overflow-wrap: anywhere; }
 .message-activity[open] { margin: 5px 0 10px; padding-bottom: 6px; }
@@ -144,10 +128,10 @@ h1, h2, h3, h4, p { overflow-wrap: anywhere; }
 .inspector { display: flex; flex-direction: column; min-height: 0; min-width: 0; border-left: 1px solid var(--line); background: var(--panel); }
 .inspector-heading { padding: 27px 24px 0; }
 .inspector-heading h2 { font: 400 26px/1.2 var(--heading); margin: 7px 0 5px; letter-spacing: -.5px; }
-.inspector-title-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.inspector-close { font-size: 22px; color: var(--muted); }
 .inspector-heading .field-help { font-size: 11px; margin: 5px 0 12px; }
-.tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 0 24px; border-bottom: 1px solid var(--line); }
+.details-actions { display: flex; justify-content: space-between; gap: 8px; margin: 0 17px 12px; }
+.details-actions button { font-size: 10px; color: var(--muted); }
+.tabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin: 0 24px; border-bottom: 1px solid var(--line); }
 .tabs button { position: relative; min-height: 42px; padding: 8px 0 12px; background: none; color: var(--muted); font-size: 11px; }
 .tabs button[aria-selected=true] { color: var(--accent-text); font-weight: 600; }
 .tabs button[aria-selected=true]::after { content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--accent); }
@@ -160,7 +144,6 @@ h1, h2, h3, h4, p { overflow-wrap: anywhere; }
 .context-group > h3 { margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .3px; }
 .context-group-description { color: var(--muted); font-size: 11px; margin: 4px 0 12px; }
 .context-card { border: 1px solid var(--line); border-left: 3px solid #c6cbc0; border-radius: 8px; padding: 13px 14px; margin: 9px 0; background: #fafaf5; }
-.context-card:focus { outline: 2px solid #7a9274; outline-offset: 3px; scroll-margin-block: 14px; }
 .context-card.stance-decided { border-left-color: #6c8660; background: #f2f5ed; }
 .context-card.stance-considering { border-left-color: #bf9d6d; background: #fcf7ed; }
 .context-card-heading { display: flex; align-items: baseline; flex-wrap: wrap; justify-content: space-between; gap: 4px 10px; }
@@ -281,11 +264,10 @@ h1, h2, h3, h4, p { overflow-wrap: anywhere; }
   .app-header { min-height: 66px; flex-shrink: 0; padding: 0 16px; gap: 10px; }
   .brand { font-size: 29px; gap: 8px; }
   .dao-mark { width: 29px; height: 29px; }
-  .header-actions { gap: 3px; }
-  #memory-toggle { font-size: 11px; padding: 8px 10px; }
-  .tools-menu > summary { font-size: 11px; gap: 5px; }
+  .header-actions { gap: 6px; }
   .badge { display: none; }
   .quiet-button { font-size: 11px; padding: 7px; white-space: nowrap; }
+  .tools-toggle { min-width: 100px; font-size: 11px; padding: 8px 10px; }
   .utility-label { display: none; }
   .utility-short { display: inline; }
   .sidebar { flex-shrink: 0; max-height: 40dvh; padding: 16px; border-right: 0; border-bottom: 1px solid var(--line); }
@@ -326,7 +308,7 @@ h1, h2, h3, h4, p { overflow-wrap: anywhere; }
   .tool-panel { padding: 22px 20px; }
   .tabs { margin: 0 20px; }
   .tabs button { font-size: 11px; }
-  .inspector-close { font-size: 11px; }
+  .details-actions { margin-left: 13px; margin-right: 13px; }
   .global-alert { top: 76px; }
 }
 @media (max-height: 650px) {

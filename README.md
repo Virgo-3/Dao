@@ -69,7 +69,7 @@ In the terminal, `/history` lists saved revisions and `/restore ID_PREFIX` resto
 
 ## See what Dao remembers
 
-The browser opens on the conversation, with the current branch visible above it. Starter prompts fill an editable message; send it when you are ready to save it. **History** reveals branches and revisions. **Memory** opens a dedicated view of remembered context, organized by the stance recorded with each note:
+The browser opens on the conversation, with the current branch visible above it. Starter prompts fill an editable message; send it when you are ready to save it. **History** reveals branches and revisions. **Context & tools** opens on **Memory**, organized by the stance recorded with each note:
 
 - **Decided** — stated choices and the reasons they depend on.
 - **Considering** — possibilities that are still open.
@@ -80,7 +80,7 @@ Expand **Original words** to inspect a source passage, then select **View origin
 
 Memory follows the branch you are viewing. Exploring an alternative keeps its subsequent notes separate; switching back restores that branch's own context. On smaller screens, the context panel opens separately, with a control to return to the conversation.
 
-Routine remembering needs no JSON or proposal review. Use **View in Memory** beside a conversation activity to focus its note. Say “Show the assumptions behind that decision” to recall the latest settled choice and open its saved reasoning. “Open the decision tool,” “Open audit,” and “Show my usage” open the corresponding browser views after the reply is saved. These view requests use no provider call and do not run evaluations or change policy. A pending advanced suggestion appears in Memory with a link to its review in **Structure**. Editors and relationship diagnostics stay collapsed until needed.
+Routine remembering needs no JSON or proposal review. A pending advanced suggestion appears in Memory with a link to its review in **Structure**. Editors and relationship diagnostics stay collapsed until needed.
 
 ## What you can work with
 
@@ -92,13 +92,13 @@ Routine remembering needs no JSON or proposal review. Use **View in Memory** bes
 | **Audit** | Review a claim against supplied evidence. Set the required source count and reliability threshold in **Review rule**; save named content when its current verdict and relationship state permit it. |
 | **Usage** | Track token usage across branches, restores, and failed requests, with optional estimated costs. |
 
-The quiet **Tools** menu opens Decision, Structure, Audit, and Usage. **Export conversation** and **Verify history** are in the same menu. Memory stays separate from these optional controls.
+The advanced tabs are inside **Context & tools**. **Export conversation** and **Verify history** are above them.
 
 The decision model can value waiting when an observation could change the best choice. Its result depends on the assumptions you enter. Relationship estimates describe reported associations. An audit counts distinct supporting sources at each source's lowest submitted reliability; any contradiction contests the claim. You supply source reliability, and meeting the review policy does not independently establish factual truth. See the [decision and evidence rules](docs/decision-model.md).
 
 Unresolved severe relationship conflicts exclude their declared actions from decision calculations. Resolving a conflict requires a current evidence review; changing a belief alone leaves it open. The [relationship guide](docs/relationships.md) explains the workflow.
 
-Advanced structure proposals support changes that need explicit review, including relationship assessments and policy settings. In **Tools → Structure**, inspect a proposal's source passages before accepting or rejecting it. “Keep that” or “Reject that suggestion” can review a single unambiguous pending suggestion. The [structure guide](docs/structure.md) documents optional JSON imports and dependency semantics.
+Advanced structure proposals support changes that need explicit review, including relationship assessments and policy settings. In **Context & tools → Structure**, inspect a proposal's source passages before accepting or rejecting it. “Keep that” or “Reject that suggestion” can review a single unambiguous pending suggestion. The [structure guide](docs/structure.md) documents optional JSON imports and dependency semantics.
 
 ## Enable live AI
 

@@ -58,52 +58,6 @@ class ConversationalServiceTests(unittest.TestCase):
         self.assertTrue(activity["citations"])
         self.assertEqual(graph["conflicts"], {})
 
-    def test_view_requests_are_local_read_only_and_emitted_after_durable_commit(self):
-        self.chat("We chose SQLite because this must work offline.")
-        original = deepcopy(self.store.head()["state"])
-        self.app = Dao(self.store, Config(provider="openai", api_key="test-only", token_budget=1))
-        finish = self.store.commit_turn
-        committed = []
-
-        def commit(*args, **kwargs):
-            result = finish(*args, **kwargs)
-            committed.append(True)
-            return result
-
-        for text, view in (("Show the assumptions behind that decision", "memory"),
-                           ("Open the decision tool", "decision"), ("Open structure", "structure"),
-                           ("Open audit", "audit"), ("Show my usage", "usage"), ("Open tools", "tools")):
-            with self.subTest(text=text), patch("dao.service.openai_stream") as provider, patch.object(self.store, "commit_turn", commit):
-                committed.clear()
-                events = []
-                for event in self.app.chat({"message": text, "expected_head": self.store.head()["id"]}):
-                    if event["type"] == "activity":
-                        self.assertTrue(committed)
-                    events.append(event)
-                self.assertEqual(events[-1]["type"], "done")
-                state = events[-1]["head"]["state"]
-                activity = next(event["result"] for event in events if event["type"] == "activity")
-                self.assertEqual((activity["kind"], activity["view"]), ("view_requested", view))
-                self.assertEqual(state["messages"][-1]["activities"][0], activity)
-                for field in ("relationships", "decisions", "artifacts", "memory"):
-                    self.assertEqual(state[field], original[field])
-                self.assertNotIn("audits", state)
-                provider.assert_not_called()
-        self.assertEqual(self.store.usage()["entries"], [])
-        self.assertTrue(self.store.verify()["ok"])
-
-    def test_failed_view_request_emits_no_success_activity(self):
-        with patch.object(self.store, "commit_turn", side_effect=ConflictError("Changed")):
-            events = self.chat("Open audit")
-        self.assertEqual(events[-1]["type"], "error")
-        self.assertFalse(any(event["type"] == "activity" for event in events))
-        self.assertNotIn("activities", self.store.head()["state"]["messages"][-1])
-
-    def test_literal_view_request_does_not_request_a_browser_view(self):
-        events = self.chat("Open audit", literal=True)
-        self.assertEqual(events[-1]["type"], "done")
-        self.assertFalse(any(event["type"] == "activity" for event in events))
-
     def test_same_turn_retraction_is_clarified_offline_and_with_a_live_provider(self):
         message = "We chose SQLite because it works offline. Actually, we changed our minds and will use Postgres instead."
         for config in (Config(), Config(provider="openai", api_key="test-only", token_budget=1)):

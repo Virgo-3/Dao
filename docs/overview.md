@@ -67,12 +67,12 @@ Go back to main
 
 The decision and its reason remain distinct from the tentative option and updated assumption. Recall preserves the original reason. A new alternative branches the saved conversation; switching back continues the destination's own context. See [talking with Dao](conversation.md) for recognized phrases and limits.
 
-The browser's **History** panel exposes branches and revisions. **Memory** shows decisions, tentative ideas, dependency reasons, and original source passages. Conversation activity links and requests such as “Show the assumptions behind that decision” open the relevant saved context. The quiet **Tools** menu contains optional advanced tools; JSON editors and relationship diagnostics are collapsed by default. Ordinary memory needs no form or proposal review. Advanced workflows remain available:
+The browser's **History** panel exposes branches and revisions. **Context & tools** opens on semantic memory with decisions, tentative ideas, dependency reasons, and original source passages, alongside optional advanced tools; JSON editors and relationship diagnostics are collapsed by default. Ordinary memory needs no form or proposal review. Advanced workflows remain available:
 
-1. Open **Tools → Decision** to compare explicit probabilities, payoffs, reversibility, costs, and signal likelihoods.
+1. Open **Context & tools → Decision** to compare explicit probabilities, payoffs, reversibility, costs, and signal likelihoods.
 2. Open **Structure** to review a structure proposal or edit weighted relations, beliefs, and reported observations. Unresolved severe conflicts exclude their declared actions until an audit allows resolution. See the [relationship workflow](relationships.md).
 3. Open **Audit** to review a claim. Source labels and reliability scores are supplied by you; meeting the policy does not establish truth. Artifact saving requires the latest matching graph-bound verdict without an action scope and no unresolved severe conflicts.
-4. Open **Usage** to inspect usage, explicit key-value memory, and artifacts, or use **Export conversation** and **Verify history** from the Tools menu.
+4. Open **Usage** to inspect usage, explicit key-value memory, and artifacts, or use **Export conversation** and **Verify history** from Context & tools.
 5. Restore a reachable earlier checkpoint from History or the terminal. Restore creates a new revision and preserves history and usage.
 
 ## Terms

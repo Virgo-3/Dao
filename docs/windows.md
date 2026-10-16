@@ -2,7 +2,9 @@
 
 Dao 0.4.0 builds a standalone **Windows x64 application**, `Dao.exe`, that includes Python and both terminal and browser interfaces.
 
-The [Windows executable workflow](https://github.com/Virgo-3/Dao/actions/workflows/windows-build.yml) provides the `Dao-windows-x64` artifact from current source. Extract its runnable `Dao-windows-x64-0.4.0.zip` to a folder; the ZIP contains `Dao.exe`, `SHA256SUMS`, `LICENSE`, and `README.txt`. Tagged builds are published under [GitHub Releases](https://github.com/Virgo-3/Dao/releases).
+The tagged [v0.4.0 release](https://github.com/Virgo-3/Dao/releases/tag/v0.4.0) is built from [`ca12d51`](https://github.com/Virgo-3/Dao/commit/ca12d51ee06e5e9f47738f3cb5aaf4129d78b085). Download its [Windows x64 ZIP](https://github.com/Virgo-3/Dao/releases/download/v0.4.0/Dao-windows-x64-0.4.0.zip) and see the [release notes](releases/v0.4.0.md) for its changes.
+
+The [Windows executable workflow](https://github.com/Virgo-3/Dao/actions/workflows/windows-build.yml) also provides a `Dao-windows-x64` artifact from current source, which may include interface changes after the tagged release. Extract the runnable `Dao-windows-x64-0.4.0.zip` to a folder; the ZIP contains `Dao.exe`, `SHA256SUMS`, `LICENSE`, and `README.txt`.
 
 ## Start a conversation
 

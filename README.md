@@ -32,7 +32,7 @@ Optional: `pip install .` adds the `dao` and `dao-terminal` commands. For browse
 
 ### Windows executable
 
-Download the current `Dao-windows-x64` artifact from the [Windows build workflow](https://github.com/Virgo-3/Dao/actions/workflows/windows-build.yml), or a tagged package from [Releases](https://github.com/Virgo-3/Dao/releases). Extract the ZIP and open PowerShell in that folder:
+Download [Dao v0.4.0 for Windows x64](https://github.com/Virgo-3/Dao/releases/download/v0.4.0/Dao-windows-x64-0.4.0.zip), built from [`ca12d51`](https://github.com/Virgo-3/Dao/commit/ca12d51ee06e5e9f47738f3cb5aaf4129d78b085). See the [release notes](docs/releases/v0.4.0.md) for its changes. For the latest `main` build, use the `Dao-windows-x64` artifact from the [Windows build workflow](https://github.com/Virgo-3/Dao/actions/workflows/windows-build.yml); its interface may include later changes. Extract the ZIP and open PowerShell in that folder:
 
 ```powershell
 .\Dao.exe

@@ -84,6 +84,52 @@ class HttpTests(unittest.TestCase):
         self.assertNotIn("csrf", export)
         self.assertNotIn("api_key", export["config"])
 
+    def structure_payload(self):
+        head = self.request("GET", "/api/state")[1]["head"]
+        _, events, _ = self.request("POST", "/api/chat", {
+            "branch": "main", "expected_head": head["id"], "message": "/remember requirement=Work offline"}, self.auth())
+        head = events[-1]["head"]
+        message = head["state"]["messages"][0]
+        citation = {"message_id": message["id"], "start": 0, "end": len(message["content"]), "quote": message["content"]}
+        return {"branch": "main", "expected_head": head["id"], "rationale": "Preserve the stated requirement",
+                "operations": [{"operation": "node", "node": {"id": "offline", "label": "Work offline",
+                    "kind": "requirement", "importance": 1, "citations": [citation]}}]}
+
+    def test_structure_staging_and_review_use_authenticated_versioned_endpoints(self):
+        payload = self.structure_payload()
+        self.assertEqual(self.request("POST", "/api/structure/propose", payload)[0], 403)
+        status, staged, _ = self.request("POST", "/api/structure/propose", payload, self.auth())
+        self.assertEqual(status, 200)
+        self.assertEqual(staged["result"]["status"], "pending")
+        self.assertNotIn("relationships", staged["head"]["state"])
+        review = {"branch": "main", "expected_head": staged["head"]["id"],
+                  "proposal_id": staged["result"]["id"], "decision": "accept"}
+        status, accepted, _ = self.request("POST", "/api/structure/review", review, self.auth())
+        self.assertEqual(status, 200)
+        self.assertEqual(accepted["result"]["status"], "accepted")
+        self.assertIn("offline", accepted["head"]["state"]["relationships"]["nodes"])
+        snapshot = self.request("GET", "/api/state")[1]
+        self.assertEqual(snapshot["messages"][0]["id"], payload["operations"][0]["node"]["citations"][0]["message_id"])
+        self.assertEqual(snapshot["dependencies"], {"offline": []})
+        self.assertTrue(self.request("GET", "/api/verify")[1]["ok"])
+
+    def test_structure_rejects_forged_sources_and_stale_review(self):
+        payload = self.structure_payload()
+        original = payload["operations"][0]["node"]["citations"][0]["quote"]
+        payload["operations"][0]["node"]["citations"][0]["quote"] = "Invented requirement"
+        self.assertEqual(self.request("POST", "/api/structure/propose", payload, self.auth())[0], 400)
+        self.assertEqual(self.request("GET", "/api/state")[1]["head"]["id"], payload["expected_head"])
+        payload["operations"][0]["node"]["citations"][0]["quote"] = original
+        _, staged, _ = self.request("POST", "/api/structure/propose", payload, self.auth())
+        review = {"branch": "main", "expected_head": payload["expected_head"],
+                  "proposal_id": staged["result"]["id"], "decision": "accept"}
+        self.assertEqual(self.request("POST", "/api/structure/review", review, self.auth())[0], 409)
+        review.update(expected_head=staged["head"]["id"], decision="reject")
+        status, rejected, _ = self.request("POST", "/api/structure/review", review, self.auth())
+        self.assertEqual(status, 200)
+        self.assertEqual(rejected["result"]["status"], "rejected")
+        self.assertNotIn("relationships", rejected["head"]["state"])
+
     def test_second_listener_cannot_share_workspace_port(self):
         with self.assertRaises(OSError):
             make_server(Dao(self.store, Config()), self.port)

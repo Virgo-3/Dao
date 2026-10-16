@@ -13,6 +13,8 @@ from .provider import ProviderError, demo_stream, openai_stream, reservation
 from .relationships import (apply as apply_relationships, blocking_conflicts,
                             digest as relationship_digest, resolution_claim, summarize)
 from .store import ConflictError
+from .structure import (citations_for, dependency_index, grounded_operation,
+                        identify_messages, message_records, propose, review)
 
 
 def text(value, label, limit=8192):
@@ -38,6 +40,19 @@ class Dao:
     def decision_message(self, result):
         return "Decision example: " + result["reason"] + "\n\nInspect the Decision panel for the inputs and utility calculation."
 
+    message_records = staticmethod(message_records)
+
+    def decision_record(self, state, problem, result, *, citations=None, dependency_ids=None):
+        dependencies = [] if dependency_ids is None else dependency_ids
+        nodes = (state.get("relationships") or {}).get("nodes", {})
+        if (not isinstance(dependencies, list) or len(dependencies) > 100
+                or any(not isinstance(identifier, str) or identifier not in nodes for identifier in dependencies)
+                or len(set(dependencies)) != len(dependencies)):
+            raise ValueError("Decision dependency_ids must be distinct existing relationship node IDs")
+        return {"id": uuid.uuid4().hex, "problem": problem, "result": result,
+                "citations": citations_for(state, [] if citations is None else citations), "dependency_ids": dependencies,
+                "relationship_digest": relationship_digest(state.get("relationships"))}
+
     @contextmanager
     def branch_lock(self, branch):
         branch = text(branch, "branch", 80)
@@ -62,6 +77,7 @@ class Dao:
         summary = {**summarize(graph), "digest": relationship_digest(graph)}
         return {"config": self.config.public(), "branches": self.store.branches(),
                 "head": head, "history": self.store.history(branch),
+                "messages": message_records(head["state"]), "dependencies": dependency_index(graph),
                 "relationships": summary, "relationship_digest": summary["digest"],
                 "usage": self.store.usage(), "events": self.store.events(branch)}
 
@@ -115,6 +131,7 @@ class Dao:
             result = None
             if route == "/api/restore":
                 return {"head": self.store.restore(branch, data.get("commit_id"), head["id"])}
+            identify_messages(state)
             if route == "/api/memory":
                 key = text(data.get("key"), "key", 100)
                 value = text(data.get("value"), "value", 4000)
@@ -124,8 +141,18 @@ class Dao:
                 kind, label = "memory", f"Remember {key}"
             elif route == "/api/decision":
                 result = self.evaluate_problem(state, data.get("problem"))
-                state["decisions"].append({"id": uuid.uuid4().hex, "problem": data["problem"], "result": result})
+                state["decisions"].append(self.decision_record(state, data["problem"], result,
+                    citations=data.get("citations"), dependency_ids=data.get("dependency_ids")))
                 kind, label = "decision", f"Decision: {result['recommendation']}"
+            elif route == "/api/structure/propose":
+                payload = {k: v for k, v in data.items() if k not in {"branch", "expected_head"}}
+                result = propose(state, payload, source="operator")
+                kind, label = "structure.proposed", "Structure proposed for review"
+            elif route == "/api/structure/review":
+                if set(data) - {"branch", "expected_head", "proposal_id", "decision"}:
+                    raise ValueError("Structure review accepts only proposal_id and decision")
+                result = review(state, data.get("proposal_id"), data.get("decision"))
+                kind, label = "structure." + result["status"], "Structure " + result["status"]
             elif route == "/api/audit":
                 problem = {k: v for k, v in data.items() if k not in {"branch", "expected_head"}}
                 result = self.adjudicate_problem(state, problem)
@@ -133,6 +160,7 @@ class Dao:
                 kind, label = "adjudication", f"Audit: {result['verdict']}"
             elif route == "/api/relationships":
                 problem = {k: v for k, v in data.items() if k not in {"branch", "expected_head"}}
+                problem = grounded_operation(state, problem)
                 if problem.get("operation") == "resolve":
                     if set(problem) - {"operation", "relation_id", "evidence", "threshold", "require_sources"}:
                         raise ValueError("Resolution accepts only relation_id, evidence, threshold, and require_sources")
@@ -178,7 +206,12 @@ class Dao:
         with self.branch_lock(branch):
             head = self.checked_head(branch, data.get("expected_head"))
             state = deepcopy(head["state"])
-            state["messages"].append({"role": "user", "content": message})
+            identify_messages(state)
+            state["messages"].append({"id": uuid.uuid4().hex, "role": "user", "content": message})
+            source_message = state["messages"][-1]
+            source_citations = [{"message_id": source_message["id"], "start": 0,
+                                 "end": len(message), "quote": message}]
+            original_proposals = deepcopy(state.get("proposals"))
             # Validate context before writing a user turn or reserving a model request.
             reserve = reservation(state, self.config)
             current = self.store.commit(branch, state, "user", " ".join(message.split())[:72], head["id"])
@@ -198,14 +231,15 @@ class Dao:
                 elif not literal and message == "/decide":
                     problem = self.example_problem()
                     result = self.evaluate_problem(state, problem)
-                    state["decisions"].append({"id": uuid.uuid4().hex, "problem": problem, "result": result})
+                    state["decisions"].append(self.decision_record(state, problem, result, citations=source_citations))
                     stream = iter([{"type": "delta", "text": self.decision_message(result)}])
                 else:
                     active_id = uuid.uuid4().hex
                     self.store.reserve_usage(branch, active_id, reserve, self.config.token_budget)
                     self.store.append_event(branch, "model_attempt", {"request_id": active_id, "provider": self.config.provider})
                     stream = (self.demo_response(state) if self.config.provider == "demo" else
-                              openai_stream(state, self.config, lambda problem: self.evaluate_problem(state, problem)))
+                              openai_stream(state, self.config, lambda problem: self.evaluate_problem(state, problem),
+                                            lambda payload: propose(state, payload, source="model")))
                 for event in stream:
                     if event["type"] == "delta":
                         delta = event["text"]
@@ -229,16 +263,21 @@ class Dao:
                         self.store.reserve_usage(branch, active_id, reserve, self.config.token_budget)
                         self.store.append_event(branch, "model_attempt", {"request_id": active_id, "provider": self.config.provider, "round": event["round"]})
                     elif event["type"] == "tool":
-                        state["decisions"].append({"id": uuid.uuid4().hex, "problem": event["problem"], "result": event["result"]})
+                        state["decisions"].append(self.decision_record(state, event["problem"], event["result"],
+                                                                      citations=source_citations))
                         self.store.append_event(branch, "tool_result", {"name": event["name"], "result": event["result"]})
                         yield {"type": "tool", "name": event["name"], "result": event["result"]}
+                    elif event["type"] == "proposal":
+                        self.store.append_event(branch, "structure_proposed", {"proposal_id": event["result"]["id"],
+                                                "status": "pending", "request_id": active_id})
+                        yield event
                     elif event["type"] == "tool_error":
                         self.store.append_event(branch, "tool_rejected", {"name": event["name"], "error": event["error"]})
                         yield {"type": "tool", "name": event["name"], "result": {"error": event["error"]}}
                 answer = "".join(chunks)
                 if not answer:
                     raise ProviderError("Model completed without a conversational reply")
-                state["messages"].append({"role": "assistant", "content": answer, "status": "completed"})
+                state["messages"].append({"id": uuid.uuid4().hex, "role": "assistant", "content": answer, "status": "completed"})
                 saved = self.store.commit(branch, state, "assistant", "Dao replied", current["id"])
                 yield {"type": "done", "head": saved, "usage": self.store.usage()}
             except Exception as exc:
@@ -251,7 +290,12 @@ class Dao:
                     except KeyError:
                         pass  # The next round may have failed admission before reservation existed.
                 partial = "".join(chunks)
-                state["messages"].append({"role": "assistant", "content": partial or "This turn did not complete.", "status": "failed"})
+                # A failed turn cannot leave a candidate presented as ready for review.
+                if original_proposals is None:
+                    state.pop("proposals", None)
+                else:
+                    state["proposals"] = original_proposals
+                state["messages"].append({"id": uuid.uuid4().hex, "role": "assistant", "content": partial or "This turn did not complete.", "status": "failed"})
                 saved = self.store.commit(branch, state, "failed", "Turn failed; usage retained", current["id"])
                 self.store.append_event(branch, "turn_failed", {"error_type": type(exc).__name__, "request_id": active_id})
                 # Known errors are useful; unexpected internals stay server-side.

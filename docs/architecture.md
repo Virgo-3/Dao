@@ -11,32 +11,36 @@ flowchart LR
     Runtime --> Decision[Scenario decision engine]
     Runtime --> Audit[Evidence adjudicator]
     Runtime --> Relationships[Versioned relationships + conflict register]
+    Runtime --> Structure[Source passages + structure proposals]
+    Structure --> Relationships
     Relationships --> Decision
     Relationships --> Audit
     Runtime --> Provider[Demo or Responses adapter]
     Provider --> Decision
 ```
 
-The model generates replies and may request read-only decision evaluation. The runtime controls branches, audit permissions, and usage accounting. It alone saves revisions and records model and tool attempts.
+The model generates replies and may request read-only decision evaluation or stage a structure proposal. The runtime validates source passages and proposal operations; only operator review can accept a proposal into the relationship graph. The runtime controls branches, audit permissions, and usage accounting. It alone saves revisions and records model and tool attempts.
 
 ## Turn lifecycle
 
 1. Validate input/context, acquire a branch lock, and check the expected head.
-2. Commit the user message. A concurrent write through another process must still pass SQLite's optimistic compare-and-swap.
+2. Give the user message a UUID identifier and commit it. A concurrent write through another process must still pass SQLite's optimistic compare-and-swap.
 3. Execute an explicit local command or reserve a model request against the global lifetime token budget. Journal every admitted request before calling the provider.
-4. Stream deltas. For a decision tool call, validate its input and preserve the result. A follow-up model request requires its own reservation. Three provider requests is the turn limit.
+4. Stream deltas. Validate a decision tool's input and preserve its result, or validate and stage a citation-backed structure proposal. A follow-up model request requires its own reservation. Three provider requests is the turn limit.
 5. Finalize each admitted request exactly once using provider usage, or retain the reservation as an estimated unknown charge after failure. On browser disconnect, continue the bounded request to completion so usage is recorded.
-6. Commit the complete assistant response or a labeled failed partial response. Failed partial responses remain inspectable and are excluded from subsequent model input.
+6. Commit the complete assistant response with its own UUID identifier, or a labeled failed partial response. Failed partial responses remain inspectable and are excluded from subsequent model input and source citations. New proposals from a failed turn are discarded; earlier proposals and usage records remain.
 
 Each provider request is limited to 4 MB of decoded body data, 50,000 SSE lines, and 2 MB per line. Empty text deltas are ignored, non-string deltas are rejected, and a running character counter bounds accumulated output without repeatedly scanning prior chunks. The reader stops at the first terminal response. It checks a 90-second elapsed deadline between decoded transport reads, with a separate 15-second socket-stall timeout; synchronous transport operations can delay a deadline check. Limit failures use the same conservative usage accounting as other interrupted streams.
 
-Decision evaluation uses the same limits for HTTP and model inputs: at most 64 entries per array, 200 characters per name, and 250,000 action-scenario evaluations across the prior and all signals. Work above that budget is rejected before scoring. Each provider response may request at most one tool call; multiple calls fail before any evaluation, bounding aggregate work across the three rounds. Model tool rejection is journaled and returned as a diagnostic; it cannot bypass the computation limits after a stream finishes.
+Decision evaluation uses the same limits for HTTP and model inputs: at most 64 entries per array, 200 characters per name, and 250,000 action-scenario evaluations across the prior and all signals. Work above that budget is rejected before scoring. Each provider response may request at most one tool call; multiple calls fail before either callback runs, bounding aggregate work across the three rounds. Invalid tools return a diagnostic to the model. Structure proposals allow 1–32 operations and at most 128 KiB, with 100 proposals per branch state. Initial model context and context after tool results are bounded to 1 MiB, including instructions.
 
 The database uses per-operation connections and immediate write transactions. Snapshot insertion, head movement, and the corresponding hash-linked journal event are atomic. Usage reservation/finalization and their journal entries are also atomic. The full turn spans multiple transactions deliberately, preserving a durable user turn and usage evidence if the process stops midstream.
 
 ## State and persistence
 
-A revision contains `messages`, `memory`, `decisions`, `artifacts`, and optional `audits` and `relationships`. Older snapshots without relationships read as an empty graph without rewriting historical hashes. Relationship operations use the same branch lock, optimistic head check, and atomic revision journal as other mutations. A revision's identifier hashes its parent, kind, label, full snapshot, and UTC timestamp. A branch's head points to its latest revision; a checkpoint is the revision being viewed or selected. Restore copies a reachable ancestor's snapshot into a new revision, preserving history and lifetime usage. It cannot undo external actions.
+A revision contains `messages`, `memory`, `decisions`, `artifacts`, and optional `audits`, `relationships`, and `proposals`. Older snapshots without relationships read as an empty graph. Legacy messages receive deterministic identifiers in detached read views; `/api/state` exposes these as top-level `messages`, while `head` and its historical hash remain unchanged. IDs are materialized only in a normal new revision. Relationship operations and proposal review use the same branch lock, optimistic head check, and atomic revision journal as other mutations. A revision's identifier hashes its parent, kind, label, full snapshot, and UTC timestamp. A branch's head points to its latest revision; a checkpoint is the revision being viewed or selected. Restore copies a reachable ancestor's snapshot into a new revision, preserving history and lifetime usage. It cannot undo external actions.
+
+Each citation binds a message ID, half-open Unicode code point offsets, and an exact quote. The runtime adds a deterministic `passage_id` and rejects missing, failed, or mismatched sources. Proposals retain their base relationship graph digest and a pending, accepted, or rejected status. Acceptance validates every operation again and saves the entire change atomically; a changed graph requires rejection and a fresh proposal. Declared `depends_on` edges produce a top-level `dependencies` index of transitive dependents. This index excludes a node from its own dependents, including in cycles. See [conversation structure](structure.md).
 
 The global journal links events across all branches with SHA-256. Integrity verification recalculates revision/event hashes and replays branch heads, metadata, and ledger entries, then checks SQLite integrity. Verification is performed before startup. It detects inconsistent local edits and missing middle records, not an adversary who can replace every hash or a consistent historical suffix.
 
@@ -48,9 +52,9 @@ Audit claims for artifacts take the form `artifact:<trimmed-name>:<SHA256(trimme
 
 Relationship beliefs assign probabilities to positive, neutral, and negative outcomes, or are explicitly unknown. Reported observations remain separate from assessed beliefs. Conditional coherence is positive mass divided by positive plus negative mass; it displays **Not defined** when that denominator is zero. Assessed coverage and unknown weight show missing assessments. Relation scope and weights are fixed once saved. Any negative belief probability or reported negative before/after state opens or reopens a conflict. Resolution requires a current graph-bound audit verdict, a belief with zero negative probability, and no latest negative reported outcome. Transition estimates use a symmetric Dirichlet prior and show counts, posterior means, and variances per relation, action, and context. They describe reported associations and do not automatically supply calibrated causal probabilities. See [relationships](relationships.md).
 
-The service binds unresolved severe conflicts to operator-declared exact action names and removes affected actions from both immediate and signal-conditioned choices. An empty applicability list applies globally. Coherence and transition summaries accompany results, but do not replace the caller's utilities. Saved memory and relationship context are sent as untrusted user input; fixed developer instructions describe the runtime boundary, following [official OpenAI guidance on untrusted inputs](https://developers.openai.com/api/docs/guides/agent-builder-safety).
+The service binds unresolved severe conflicts to operator-declared exact action names and removes affected actions from both immediate and signal-conditioned choices. An empty applicability list applies globally. Coherence and transition summaries accompany results, but do not replace the caller's utilities. Saved memory, accepted structure, and pending proposals are sent as untrusted user input; fixed instructions describe the runtime boundary, following [official OpenAI guidance on untrusted inputs](https://developers.openai.com/api/docs/guides/agent-builder-safety). Model source labels expose stable message IDs and define offsets against original content. The optional `propose_structure` model tool stages candidates only; there are no model tools for acceptance, rejection, or conflict resolution.
 
-Source labels, evidence reliability, scenario probabilities, and utilities are supplied by the operator. Decision results are recommendations based on those assumptions and do not perform external actions. Audit verdicts gate conflict resolution and local artifact saving.
+Source labels, evidence reliability, scenario probabilities, and utilities are supplied by the operator. Exact source matching proves provenance, not factual truth or logical entailment. `supersedes` and `contradicts` preserve declared relationships without deleting records or automatically resolving conflicts. Decision records save optional citations and explicit existing-node `dependency_ids` with the relationship digest; numeric decisions do not infer graph dependencies. Decision results are recommendations based on supplied assumptions and do not perform external actions. Audit verdicts gate conflict resolution and local artifact saving.
 
 ## Source map
 
@@ -61,7 +65,8 @@ Source labels, evidence reliability, scenario probabilities, and utilities are s
 | `dao/decision.py` | Validated decision problem, posterior utility, waiting |
 | `dao/audit.py` | Deterministic evidence review, verdicts, and digest |
 | `dao/relationships.py` | Relationship beliefs, persistent conflicts, and transition estimates |
-| `dao/provider.py` | Demo and live model streams; bounded read-only tools |
+| `dao/structure.py` | Stable message views, exact source citations, proposals, and dependency index |
+| `dao/provider.py` | Demo and live model streams; bounded evaluation and proposal tools |
 | `dao/server.py` | Loopback JSON/NDJSON API and static assets |
 | `dao/config.py` | Server-side configuration and cost accounting |
 | `dao/static/` | Accessible dependency-free browser workspace |

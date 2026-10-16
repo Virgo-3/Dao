@@ -2,7 +2,7 @@
 
 **A conversation with room to change your mind.**
 
-Dao is a local conversational workspace where you can follow a thought, branch into another possibility, and return to an earlier checkpoint. It saves your conversation and working state together, with tools for comparing decisions, reviewing evidence, and tracking usage.
+Dao is a local conversational workspace where you can follow a thought, branch into another possibility, and return to an earlier checkpoint. It saves your conversation and working state together, with tools for comparing decisions, reviewing evidence, and tracking usage. Decisions, assumptions, requirements, and analysis can become structured records linked to the exact conversation passages behind them.
 
 Use the browser workspace or the streaming terminal. Both work with the same saved history.
 
@@ -72,12 +72,15 @@ In the browser, use the branch sidebar and the **Decision**, **Relationships**, 
 | **History and branches** | Save checkpoints, explore alternatives independently, and restore earlier state. |
 | **Decisions** | Compare acting, waiting for more information, and abstaining using explicit scenarios, probabilities, payoffs, costs, and reversibility. |
 | **Relationships** | Record directed relationships, assessed beliefs, and reported observations. Inspect coverage and unresolved conflicts. |
+| **Structure proposals** | Review citation-backed updates before accepting them into the graph; trace declared dependencies to affected conclusions. |
 | **Evidence review** | Review a claim under an explicit evidence policy. Save named content when the current verdict and relationship state permit it. |
 | **Usage** | Track token usage across branches, restores, and failed requests, with optional estimated costs. |
 
 The decision model can value waiting when an observation could change the best choice. Its result depends on the assumptions you enter. Relationship estimates describe reported associations, and an audit verdict records whether submitted evidence meets the policy. You supply source reliability; the review does not independently establish factual truth.
 
 Unresolved severe relationship conflicts exclude their declared actions from decision calculations. Resolving a conflict requires a current evidence review; changing a belief alone leaves it open. The [relationship guide](docs/relationships.md) explains the workflow.
+
+In **Relationships**, stage a JSON structure proposal or review a live model's proposal, inspect its source passages, then accept or reject it. The terminal provides `/messages`, `/propose PATH`, `/proposals`, `/accept ID`, and `/reject ID`. Manual proposals work in the offline demo. See the [conversation structure guide](docs/structure.md) for an example and dependency semantics.
 
 ## Enable live AI
 
@@ -101,7 +104,7 @@ python -m dao --terminal
 
 For the Windows package, replace the final command with `.\Dao.exe`. Use `DAO_MODEL` to select a Responses API model available to your account.
 
-Live AI sends the current conversation, saved memory, and relationship context to OpenAI. The API key is used for authentication and excluded from saved state, exports, and browser configuration. The model can request read-only decision evaluation; it has no shell or external-action tools.
+Live AI sends the current conversation, saved memory, accepted relationship context, and pending structure proposals to OpenAI. The API key is used for authentication and excluded from saved state, exports, and browser configuration. The model can request read-only decision evaluation and stage structure proposals for your review. Accepting or rejecting proposals remains an operator action; the model has no shell or external-action tools.
 
 | Setting | Purpose |
 | --- | --- |
@@ -129,6 +132,7 @@ Dao runs as a single-user local application, bound to `127.0.0.1`. Restoring a c
 - [Terminal guide](docs/terminal.md) — commands and JSON imports
 - [Windows guide](docs/windows.md) — downloads, verification, and packaging
 - [Relationships](docs/relationships.md) — beliefs, observations, conflicts, and resolution
+- [Conversation structure](docs/structure.md) — source passages, proposals, and dependencies
 - [Decision model](docs/decision-model.md) — assumptions and calculations
 - [Mathematical checks](docs/mathematical-checks.md) — verification of the decision model
 - [Architecture](docs/architecture.md) — runtime, persistence, and policy

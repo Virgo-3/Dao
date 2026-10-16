@@ -42,6 +42,10 @@ def resolution(graph, identifier="effect"):
     ]})
 
 
+def citation():
+    return {"message_id": "message:1", "start": 2, "end": 14, "quote": "Use SQLite. ", "passage_id": "a" * 64}
+
+
 POSITIVE = {"positive": 1, "neutral": 0, "negative": 0}
 NEUTRAL = {"positive": 0, "neutral": 1, "negative": 0}
 NEGATIVE = {"positive": 0, "neutral": 0, "negative": 1}
@@ -79,6 +83,132 @@ class RelationshipTests(unittest.TestCase):
         self.assertTrue(relation["created_at"].endswith("+00:00"))
         graph = assess(graph, POSITIVE)
         self.assertEqual(graph["relations"]["effect"]["assessment"]["source"], "submitted report")
+
+    def test_semantic_nodes_capture_content_and_exact_citation_quotes(self):
+        graph = empty_graph()
+        for kind in ("decision", "assumption", "requirement", "condition", "analysis"):
+            payload = {"operation": "node", "node": {**node(kind, kind), "content": "  Works offline.\n  ",
+                                                     "citations": [citation()]}}
+            graph, _ = apply(graph, payload)
+            stored = graph["nodes"][kind]
+            self.assertEqual(stored["kind"], kind)
+            self.assertEqual(stored["content"], "Works offline.")
+            self.assertEqual(stored["citations"], [citation()])
+            payload["node"]["citations"][0]["quote"] = "changed"
+            self.assertEqual(stored["citations"][0]["quote"], "Use SQLite. ")
+        self.assertEqual(summarize(graph)["node_count"], 5)
+
+    def test_semantic_links_are_declarative_and_do_not_remove_prior_records(self):
+        graph = assess(fixture(severe=True), NEGATIVE)
+        original = copy.deepcopy(graph)
+        for kind in ("depends_on", "contradicts", "supersedes"):
+            graph, _ = apply(graph, {"operation": "relation", "relation": {
+                **definition(kind), "kind": kind, "citations": [citation()]}})
+            self.assertIsNone(graph["relations"][kind]["belief"])
+            self.assertIsNone(graph["relations"][kind]["assessment"])
+            self.assertEqual(graph["relations"][kind]["citations"], [citation()])
+        self.assertEqual(graph["nodes"], original["nodes"])
+        self.assertEqual(graph["relations"]["effect"], original["relations"]["effect"])
+        self.assertEqual(graph["conflicts"], original["conflicts"])
+        self.assertEqual(len(blocking_conflicts(graph)), 1)
+
+    def test_semantic_link_assessments_keep_existing_conflict_rules(self):
+        graph = fixture()
+        for kind in ("depends_on", "contradicts", "supersedes"):
+            graph, _ = apply(graph, {"operation": "relation", "relation": {
+                **definition(kind, severe=True), "kind": kind}})
+            graph = assess(graph, NEGATIVE, kind)
+            graph = assess(graph, POSITIVE, kind)
+            self.assertEqual(graph["conflicts"][kind]["status"], "unresolved")
+        self.assertEqual({item["relation_id"] for item in blocking_conflicts(graph)},
+                         {"depends_on", "contradicts", "supersedes"})
+
+    def test_citations_are_saved_on_assessments_and_observations(self):
+        graph = fixture()
+        graph, _ = apply(graph, {"operation": "assess", "relation_id": "effect", "belief": POSITIVE,
+                                 "source": "conversation", "content": "A submitted assessment.",
+                                 "citations": [citation()]})
+        graph, _ = apply(graph, {"operation": "observe", "relation_id": "effect", "action": "Pilot",
+                                 "context": "offline", "before": "neutral", "after": "positive",
+                                 "source": "conversation", "content": "A submitted observation.",
+                                 "citations": [citation()]})
+        self.assertEqual(graph["relations"]["effect"]["assessment"]["citations"], [citation()])
+        self.assertEqual(graph["observations"][0]["citations"], [citation()])
+        changed = copy.deepcopy(graph)
+        changed["observations"][0]["citations"][0]["quote"] = "another quote"
+        self.assertNotEqual(digest(graph), digest(changed))
+
+    def test_optional_semantic_fields_do_not_change_legacy_graphs_or_digests(self):
+        graph = observation(assess(fixture(), POSITIVE))
+        for item in graph["nodes"].values():
+            self.assertNotIn("content", item)
+            self.assertNotIn("citations", item)
+        relation = graph["relations"]["effect"]
+        self.assertNotIn("citations", relation)
+        self.assertNotIn("citations", relation["assessment"])
+        self.assertNotIn("citations", graph["observations"][0])
+        for item in [*graph["nodes"].values(), relation]:
+            item["created_at"] = "2026-01-01T00:00:00+00:00"
+        relation["assessment"]["at"] = "2026-01-01T00:00:00+00:00"
+        graph["observations"][0]["at"] = "2026-01-01T00:00:00+00:00"
+        self.assertEqual(graph["schema"], "dao-relationships-v1")
+        # Fixed digest verified against the original v1 implementation.
+        self.assertEqual(digest(graph), "c3be0eaab28f193ba46d2243c5be3b3d872f1307153936da74c6ec81014ba05b")
+        canonical = json.dumps(graph, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+        self.assertEqual(digest(graph), hashlib.sha256(canonical.encode("utf-8")).hexdigest())
+        unchanged, _ = apply(graph, {"operation": "node", "node": node("another")})
+        del unchanged["nodes"]["another"]
+        self.assertEqual(unchanged, graph)
+        self.assertEqual(digest(unchanged), digest(graph))
+
+    def test_rejects_invalid_node_content(self):
+        for content in (None, "", "  ", "x" * 4001, True, "unsafe\x00text"):
+            with self.subTest(content=str(content)[:20]), self.assertRaises(ValueError):
+                apply(empty_graph(), {"operation": "node", "node": {**node("new"), "content": content}})
+
+    def test_rejects_malformed_citations_without_mutation(self):
+        graph = fixture()
+        before = copy.deepcopy(graph)
+        malformed = [None, {}, [citation()] * 33, [None], [{**citation(), "unknown": True}],
+                     [{key: value for key, value in citation().items() if key != "quote"}]]
+        for field, value in (("message_id", "unsafe/id"), ("message_id", "a" * 101), ("message_id", ""),
+                             ("start", -1), ("start", True), ("start", 2.0), ("end", "14"),
+                             ("end", 2), ("end", False), ("quote", ""), ("quote", "  "),
+                             ("quote", "x" * 8193), ("quote", "x\x00"), ("passage_id", "a" * 63),
+                             ("passage_id", "g" * 64), ("passage_id", None)):
+            malformed.append([{**citation(), field: value}])
+        for citations in malformed:
+            payloads = [
+                {"operation": "node", "node": {**node("new"), "citations": citations}},
+                {"operation": "relation", "relation": {**definition("new"), "citations": citations}},
+                {"operation": "assess", "relation_id": "effect", "belief": POSITIVE, "source": "chat",
+                 "content": "assessment", "citations": citations},
+                {"operation": "observe", "relation_id": "effect", "action": "Pilot", "context": "A",
+                 "before": "neutral", "after": "positive", "source": "chat", "content": "outcome",
+                 "citations": citations}]
+            for payload in payloads:
+                with self.subTest(operation=payload["operation"], citations=str(citations)[:80]), self.assertRaises(ValueError):
+                    apply(graph, payload)
+        self.assertEqual(graph, before)
+
+    def test_stored_citations_are_validated_in_every_supported_location(self):
+        graph = observation(assess(fixture(), POSITIVE))
+        locations = [("nodes", "action"), ("relations", "effect"),
+                     ("relations", "effect", "assessment"), ("observations", 0)]
+        for path in locations:
+            changed = copy.deepcopy(graph)
+            item = changed
+            for field in path:
+                item = item[field]
+            item["citations"] = [{**citation(), "end": -1}]
+            with self.subTest(path=path), self.assertRaisesRegex(ValueError, "citation.end"):
+                digest(changed)
+
+    def test_citation_offsets_use_code_points_and_preserve_multiline_quotes(self):
+        submitted = {"message_id": "m" * 100, "start": 1, "end": 5, "quote": "🧠\nA "}
+        graph, _ = apply(empty_graph(), {"operation": "node", "node": {
+            **node("unicode", "claim"), "citations": [submitted]}})
+        self.assertEqual(graph["nodes"]["unicode"]["citations"], [submitted])
 
     def test_hidden_adverse_relation_increases_coherence_but_reduces_coverage_and_keeps_case(self):
         graph = fixture()

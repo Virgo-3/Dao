@@ -25,6 +25,15 @@ function versionedState() {
   return workspace?.head?.state || {};
 }
 
+function messageRecords() {
+  return workspace?.messages ?? versionedState().messages ?? [];
+}
+
+function historicalView() {
+  const currentBranch = (workspace?.branches || []).find((item) => item.name === branch);
+  return Boolean(currentBranch && idOf(currentBranch.head) && idOf(currentBranch.head) !== idOf(workspace?.head));
+}
+
 function formatNumber(value, precision = 2) {
   return typeof value === "number" && Number.isFinite(value)
     ? value.toLocaleString(undefined, { maximumFractionDigits: precision })
@@ -126,6 +135,10 @@ function daoIcon(className = "") {
 function renderMessage(message, streaming = false) {
   const role = message.role === "user" ? "user" : message.role === "assistant" ? "assistant" : "system";
   const item = node("article", `message ${role}${streaming ? " streaming" : ""}`);
+  if (message.id) {
+    item.dataset.messageId = message.id;
+    item.tabIndex = -1;
+  }
   const avatar = node("span", `message-avatar ${role}`, role === "user" ? "You" : role === "system" ? "✧" : undefined);
   if (role === "assistant") avatar.append(daoIcon());
   item.append(avatar);
@@ -133,6 +146,29 @@ function renderMessage(message, streaming = false) {
   body.append(node("div", "message-label", role === "assistant" ? "Dao" : titleCase(role)));
   const content = node("div", "message-content", message.content || "");
   body.append(content);
+  if (message.id) {
+    const source = node("details", "message-source");
+    source.append(node("summary", "", `Source details · ${message.id}`));
+    const citation = messageCitation(message);
+    if (!citation) {
+      source.append(node("p", "field-help", "This message has no citable passage because its turn failed or its content is empty or contains only unsupported controls."));
+      body.append(source);
+    } else {
+      source.append(node("p", "field-help", "Copy this citation into a node, relation, or assessment’s citations array. Narrow start, end, and quote to cite a passage."));
+      source.append(node("pre", "json-preview", JSON.stringify(citation, null, 2)));
+      const copy = node("button", "text-button", "Copy citation");
+      copy.type = "button";
+      copy.addEventListener("click", async () => {
+        try {
+          if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable. Select and copy the citation shown here.");
+          await navigator.clipboard.writeText(JSON.stringify(citation, null, 2));
+          notify("Source citation copied.");
+        } catch (error) { showError(error); }
+      });
+      source.append(copy);
+      body.append(source);
+    }
+  }
   if (message.status && !["complete", "completed", "done"].includes(message.status)) {
     body.append(node("div", "message-status", titleCase(message.status)));
   }
@@ -146,7 +182,7 @@ function scrollMessages() {
 }
 
 function renderConversation() {
-  const messages = versionedState().messages || [];
+  const messages = messageRecords();
   $("messages").replaceChildren();
   $("starter-prompts").hidden = messages.length > 0;
   if (!messages.length) {
@@ -273,6 +309,7 @@ function renderWorkspace() {
   renderConversation();
   renderUsage();
   renderRelationships();
+  renderStructure();
   const saved = versionedState();
   if (saved.decisions?.length) renderDecision(saved.decisions[saved.decisions.length - 1].result);
   else $("decision-result").replaceChildren();
@@ -314,11 +351,166 @@ function renderRelationships() {
   addJsonDetails($("relationship-details"), versionedState().relationships || {}, "Saved relationships, assessments, and observations");
 }
 
+function citationsIn(value) {
+  const citations = [];
+  const pending = [value];
+  const seen = new Set();
+  while (pending.length) {
+    const item = pending.pop();
+    if (!item || typeof item !== "object") continue;
+    if (Array.isArray(item)) { pending.push(...item); continue; }
+    if (Array.isArray(item.citations)) {
+      item.citations.forEach((citation) => {
+        const key = JSON.stringify(citation);
+        if (citation && !seen.has(key)) { citations.push(citation); seen.add(key); }
+      });
+    }
+    Object.entries(item).forEach(([key, child]) => { if (key !== "citations") pending.push(child); });
+  }
+  return citations;
+}
+
+function showPassage(citation) {
+  const message = messageRecords().find((item) => item.id === citation.message_id);
+  const article = [...$("messages").querySelectorAll("[data-message-id]")].find((item) => item.dataset.messageId === citation.message_id);
+  if (!message || !article) { showError(new Error("This source message is unavailable in the viewed revision.")); return; }
+  const characters = Array.from(message.content || "");
+  const { start, end } = citation;
+  if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end <= start || end > characters.length || characters.slice(start, end).join("") !== citation.quote) {
+    showError(new Error("This citation does not match the original message passage.")); return;
+  }
+  $("messages").querySelectorAll(".message-source-highlight").forEach((item) => item.classList.remove("message-source-highlight"));
+  $("messages").querySelectorAll(".message-content mark").forEach((mark) => mark.replaceWith(document.createTextNode(mark.textContent)));
+  const content = article.querySelector(".message-content");
+  const mark = node("mark", "", citation.quote);
+  content.replaceChildren(document.createTextNode(characters.slice(0, start).join("")), mark, document.createTextNode(characters.slice(end).join("")));
+  article.classList.add("message-source-highlight");
+  if (!wideLayout.matches) setToolsOpen(false);
+  article.focus({ preventScroll: true });
+  mark.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function appendCitations(container, value) {
+  const citations = citationsIn(value);
+  if (!citations.length) return;
+  const list = node("ul", "source-citations");
+  citations.forEach((citation) => {
+    const item = node("li");
+    const link = node("button", "text-button source-link", `Source: ${citation.message_id} [${citation.start}:${citation.end}]`);
+    link.type = "button";
+    link.addEventListener("click", () => showPassage(citation));
+    item.append(link, node("blockquote", "source-quote", citation.quote || ""));
+    list.append(item);
+  });
+  container.append(list);
+}
+
+function renderStructure() {
+  const proposals = versionedState().proposals || [];
+  const historical = historicalView();
+  $("proposal-count").textContent = `${proposals.filter((proposal) => proposal.status === "pending").length} pending`;
+  $("structure-stage").dataset.intrinsicDisabled = String(historical);
+  const latest = latestCitableMessage();
+  $("structure-from-message").dataset.intrinsicDisabled = String(historical || !latest);
+  $("structure-from-message").disabled = historical || !latest || busy || !ready;
+  $("structure-proposals").replaceChildren();
+  if (!proposals.length) $("structure-proposals").append(node("p", "empty-copy", "No structure proposals at this revision. Stage one below or ask Dao to propose knowledge from your conversation."));
+  [...proposals].reverse().forEach((proposal) => {
+    const card = node("article", `proposal-card proposal-${proposal.status}`);
+    const heading = node("div", "proposal-heading");
+    heading.append(node("strong", "", titleCase(proposal.status || "pending")), node("span", "proposal-origin", `${titleCase(proposal.source || "operator")} · ${formatTime(proposal.created_at)}`));
+    card.append(heading, node("p", "proposal-rationale", proposal.rationale || ""), node("code", "proposal-id", proposal.id));
+    const operations = Array.isArray(proposal.operations) ? proposal.operations : [];
+    const list = node("ol", "proposal-operations");
+    operations.forEach((operation) => {
+      const record = operation.node || operation.relation || {};
+      const label = record.label || record.id || operation.relation_id || "";
+      const item = node("li", "", `${titleCase(operation.operation || "Operation")}${label ? `: ${label}` : ""}`);
+      if (record.source && record.target) item.append(node("div", "field-help", `${record.source} → ${record.target} · ${titleCase(record.kind || "relationship")}`));
+      appendCitations(item, operation);
+      list.append(item);
+    });
+    card.append(list);
+    addJsonDetails(card, proposal, "Inspect complete proposal");
+    if (proposal.status === "pending") {
+      const actions = node("div", "proposal-actions");
+      ["accept", "reject"].forEach((decision) => {
+        const button = node("button", decision === "accept" ? "primary-button" : "secondary-button", titleCase(decision));
+        button.type = "button";
+        button.dataset.mutation = "";
+        button.dataset.intrinsicDisabled = String(historical);
+        button.disabled = busy || !ready || historical;
+        button.setAttribute("aria-label", `${titleCase(decision)} proposal ${proposal.id}`);
+        button.addEventListener("click", () => mutate(async () => {
+          try {
+            await api("/api/structure/review", { branch, expected_head: idOf(workspace.head), proposal_id: proposal.id, decision });
+          } catch (error) {
+            try { await refresh(); } catch { /* Preserve the review failure. */ }
+            if (decision === "accept" && /stale|graph.*chang|relationship.*chang/i.test(error.message)) {
+              throw new Error("This proposal is based on earlier relationships. Stage a new proposal against the current graph before accepting it.");
+            }
+            throw error;
+          }
+          resetVerdict();
+          await refresh();
+          $("structure-status").textContent = decision === "accept" ? "Proposal accepted. Its operations are now saved knowledge." : "Proposal rejected. Its operations were not applied.";
+          notify(decision === "accept" ? "Proposal accepted. Its operations are now saved knowledge." : "Proposal rejected. Its operations were not applied.");
+        }));
+        actions.append(button);
+      });
+      card.append(actions);
+      if (historical) card.append(node("p", "field-help", "Proposal review is available at the current branch revision."));
+    }
+    $("structure-proposals").append(card);
+  });
+  const graph = versionedState().relationships || {};
+  const nodes = graph.nodes || {};
+  const relations = graph.relations || {};
+  const accepted = $("accepted-structure");
+  accepted.replaceChildren();
+  if (!Object.keys(nodes).length && !Object.keys(relations).length) accepted.append(node("p", "empty-copy", "No accepted structure at this revision."));
+  Object.entries(nodes).forEach(([id, record]) => {
+    const card = node("article", "accepted-record");
+    card.append(node("strong", "", record.label || id), node("p", "field-help", `${titleCase(record.kind || "node")} · ${id}`));
+    if (record.content) card.append(node("p", "proposal-rationale", record.content));
+    appendCitations(card, record);
+    const dependsOn = Object.values(relations).filter((relation) => relation.kind === "depends_on" && relation.source === id).map((relation) => relation.target);
+    const dependents = workspace?.dependencies?.[id] || [];
+    [["Depends on", dependsOn], ["Used by", dependents]].forEach(([label, ids]) => {
+      if (!ids.length) return;
+      const list = node("ul", "dependency-list");
+      ids.forEach((relatedId) => {
+        const related = nodes[relatedId] || {};
+        const item = node("li", "", related.label || relatedId);
+        appendCitations(item, related);
+        list.append(item);
+      });
+      card.append(node("div", "section-label", label), list);
+    });
+    accepted.append(card);
+  });
+  Object.entries(relations).forEach(([id, record]) => {
+    const card = node("article", "accepted-record");
+    card.append(node("strong", "", `${nodes[record.source]?.label || record.source} → ${nodes[record.target]?.label || record.target}`), node("p", "field-help", `${titleCase(record.kind || "relationship")} · ${id}`));
+    appendCitations(card, record);
+    accepted.append(card);
+  });
+  (graph.observations || []).forEach((observation) => {
+    const card = node("article", "accepted-record");
+    card.append(node("strong", "", `Observation: ${observation.relation_id}`), node("p", "field-help", `${observation.action} · ${observation.context}`), node("p", "proposal-rationale", observation.content));
+    appendCitations(card, observation);
+    accepted.append(card);
+  });
+}
+
 async function refresh(nextBranch = branch) {
   const response = await api(`/api/state?branch=${encodeURIComponent(nextBranch)}`);
   if (response.csrf) csrf = response.csrf;
   workspace = { ...response, config: response.config || workspace?.config };
-  if (nextBranch !== branch) $("relationship-status").textContent = "";
+  if (nextBranch !== branch) {
+    $("relationship-status").textContent = "";
+    $("structure-status").textContent = "";
+  }
   branch = nextBranch;
   renderWorkspace();
 }
@@ -461,13 +653,14 @@ async function submitChat() {
   if (!message || busy || !ready) return;
   await mutate(async () => {
     const expectedHead = idOf(workspace.head);
-    if (!(versionedState().messages || []).length) $("messages").replaceChildren();
+    if (!messageRecords().length) $("messages").replaceChildren();
     $("starter-prompts").hidden = true;
     renderMessage({ role: "user", content: message });
     const assistant = renderMessage({ role: "assistant", content: "" }, true);
     $("message-input").value = "";
     scrollMessages();
     let complete = false;
+    let proposalCount = 0;
     let receivedText = "";
     try {
       const response = await fetch("/api/chat", {
@@ -490,6 +683,9 @@ async function submitChat() {
           scrollMessages();
         } else if (event.type === "done") {
           complete = true;
+        } else if (event.type === "proposal") {
+          proposalCount += 1;
+          $("structure-status").textContent = "Dao proposed structured knowledge. Review the pending proposal in Relationships.";
         } else if (event.type === "error") {
           throw new Error(event.error || "The conversation stopped before completion.");
         }
@@ -514,10 +710,12 @@ async function submitChat() {
       if (!complete) throw new Error("The stream ended before completion. Your saved state will be reloaded.");
       assistant.item.classList.remove("streaming");
       await refresh();
+      if (proposalCount) notify(`${proposalCount === 1 ? "A structure proposal is" : `${proposalCount} structure proposals are`} pending review in Relationships.`);
     } catch (error) {
       assistant.item.classList.remove("streaming");
       if (!receivedText) $("message-input").value = message;
       try { await refresh(); } catch { /* Keep the original failure visible. */ }
+      $("structure-status").textContent = "The conversation failed. New proposals from this turn were discarded; saved proposals are shown above.";
       throw error;
     }
   });
@@ -655,6 +853,57 @@ const relationshipExamples = {
     { source: "Example outcome report", content: "Replace with a distinct reviewed source supporting resolution.", stance: "support", reliability: 0.9 }
   ] }
 };
+
+function messageCitation(message) {
+  if (!message.id || ["failed", "interrupted"].includes(message.status) || typeof message.content !== "string") return null;
+  const characters = Array.from(message.content);
+  const unsupported = (character) => /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/u.test(character);
+  for (let start = 0; start < characters.length;) {
+    while (start < characters.length && unsupported(characters[start])) start += 1;
+    let end = start;
+    while (end < characters.length && end - start < 8192 && !unsupported(characters[end])) end += 1;
+    const quote = characters.slice(start, end).join("");
+    if (quote.trim()) return { message_id: message.id, start, end, quote };
+    start = end < characters.length && unsupported(characters[end]) ? end + 1 : end;
+  }
+  return null;
+}
+
+function latestCitableMessage() {
+  return [...messageRecords()].reverse().find((message) => message.role === "user" && messageCitation(message));
+}
+
+$("structure-from-message").addEventListener("click", () => {
+  if (busy || !ready || historicalView()) return;
+  const message = latestCitableMessage();
+  if (!message) { showError(new Error("Send a message before starting a cited proposal.")); return; }
+  const citation = messageCitation(message);
+  const identity = window.crypto?.randomUUID ? window.crypto.randomUUID().replaceAll("-", "") : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
+  const proposal = {
+    rationale: "Capture a passage from the latest user message as a claim for operator review.",
+    operations: [{ operation: "node", node: {
+      id: `claim-${identity}`,
+      label: Array.from(citation.quote.replace(/\s+/gu, " ").trim()).slice(0, 256).join(""),
+      kind: "claim",
+      importance: 1,
+      content: Array.from(citation.quote.trim()).slice(0, 4000).join(""),
+      citations: [citation]
+    } }]
+  };
+  $("structure-input").value = JSON.stringify(proposal, null, 2);
+  $("structure-status").textContent = "Copied the latest message into a cited claim starter. Edit its meaning and label, then stage it for review.";
+  $("structure-input").focus();
+});
+$("structure-stage").addEventListener("click", () => mutate(async () => {
+  let proposal;
+  try { proposal = JSON.parse($("structure-input").value); } catch { throw new Error("The structure proposal needs valid JSON."); }
+  if (!proposal || Array.isArray(proposal) || typeof proposal !== "object") throw new Error("A structure proposal must be a JSON object with rationale and operations.");
+  if (Object.hasOwn(proposal, "branch") || Object.hasOwn(proposal, "expected_head")) throw new Error("A proposal cannot select a branch or override its current revision.");
+  await api("/api/structure/propose", { ...proposal, branch, expected_head: idOf(workspace.head) });
+  await refresh();
+  $("structure-status").textContent = "Proposal staged. Review its operations and citations above, then accept or reject it.";
+  notify("Structure proposal staged for review.");
+}));
 document.querySelectorAll("[data-relationship-example]").forEach((button) => {
   button.addEventListener("click", () => {
     $("relationship-input").value = JSON.stringify(relationshipExamples[button.dataset.relationshipExample], null, 2);

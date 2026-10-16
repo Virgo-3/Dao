@@ -25,6 +25,8 @@ MAX_OBSERVATIONS = 512
 MAX_CONFLICT_HISTORY = 128
 MAX_GRAPH_BYTES = 2_000_000
 _IDENTIFIER = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}\Z")
+_MESSAGE_IDENTIFIER = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,99}\Z")
+MAX_CITATIONS = 32
 
 
 def empty_graph() -> dict[str, Any]:
@@ -98,12 +100,49 @@ def _actions(value: Any) -> list[str]:
     return result
 
 
+def normalize_citations(value: Any) -> list[dict[str, Any]]:
+    """Validate citation shape; the runtime verifies cited message passages.
+
+    Offsets use Python/Unicode code points, and quote text is preserved exactly
+    so that whitespace and non-ASCII passages can be checked without guessing.
+    """
+    if not isinstance(value, list) or len(value) > MAX_CITATIONS:
+        raise ValueError(f"citations must be an array of at most {MAX_CITATIONS} entries")
+    result = []
+    for citation in value:
+        citation = _object(citation, "citation", {"message_id", "start", "end", "quote", "passage_id"},
+                           {"message_id", "start", "end", "quote"})
+        message_id = _text(citation["message_id"], "citation.message_id", 100)
+        if not _MESSAGE_IDENTIFIER.fullmatch(message_id):
+            raise ValueError("citation.message_id must be a safe identifier")
+        for field in ("start", "end"):
+            if isinstance(citation[field], bool) or not isinstance(citation[field], int) or citation[field] < 0:
+                raise ValueError(f"citation.{field} must be a nonnegative integer")
+        if citation["end"] <= citation["start"]:
+            raise ValueError("citation.end must be greater than citation.start")
+        _text(citation["quote"], "citation.quote", 8192, multiline=True)
+        item = {"message_id": message_id, "start": citation["start"], "end": citation["end"],
+                "quote": citation["quote"]}
+        if "passage_id" in citation:
+            passage_id = citation["passage_id"]
+            if not isinstance(passage_id, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", passage_id):
+                raise ValueError("citation.passage_id must contain 64 hexadecimal characters")
+            item["passage_id"] = passage_id
+        result.append(item)
+    return result
+
+
 def _node(value: Any, *, stored: bool = False) -> dict[str, Any]:
-    fields = {"id", "label", "kind", "importance"} | ({"created_at"} if stored else set())
-    value = _object(value, "node", fields)
+    required = {"id", "label", "kind", "importance"} | ({"created_at"} if stored else set())
+    value = _object(value, "node", required | {"content", "citations"}, required)
     result = {"id": _identifier(value["id"], "node.id"), "label": _text(value["label"], "node.label", 256),
-              "kind": _choice(value["kind"], "node.kind", {"person", "goal", "claim", "action"}),
+              "kind": _choice(value["kind"], "node.kind", {"person", "goal", "claim", "action", "decision",
+                                                               "assumption", "requirement", "condition", "analysis"}),
               "importance": _number(value["importance"], "node.importance")}
+    if "content" in value:
+        result["content"] = _text(value["content"], "node.content", 4000, multiline=True)
+    if "citations" in value:
+        result["citations"] = normalize_citations(value["citations"])
     if stored:
         result["created_at"] = _text(value["created_at"], "created_at", 64)
     return result
@@ -113,24 +152,30 @@ def _relation(value: Any, *, stored: bool = False) -> dict[str, Any]:
     fields = {"id", "source", "target", "kind", "weight", "severe", "actions"}
     if stored:
         fields |= {"created_at", "belief", "assessment"}
-    value = _object(value, "relation", fields)
+    value = _object(value, "relation", fields | {"citations"}, fields)
     if not isinstance(value["severe"], bool):
         raise ValueError("relation.severe must be a boolean")
     result = {"id": _identifier(value["id"], "relation.id"),
               "source": _identifier(value["source"], "relation.source"),
               "target": _identifier(value["target"], "relation.target"),
-              "kind": _choice(value["kind"], "relation.kind", {"effect", "support", "compatibility", "resource"}),
+              "kind": _choice(value["kind"], "relation.kind", {"effect", "support", "compatibility", "resource",
+                                                                      "depends_on", "contradicts", "supersedes"}),
               "weight": _number(value["weight"], "relation.weight"), "severe": value["severe"],
               "actions": _actions(value["actions"])}
+    if "citations" in value:
+        result["citations"] = normalize_citations(value["citations"])
     if stored:
         result["created_at"] = _text(value["created_at"], "created_at", 64)
         result["belief"] = _belief(value["belief"])
         result["assessment"] = value["assessment"]
         if value["assessment"] is not None:
-            assessment = _object(value["assessment"], "assessment", {"source", "content", "at"})
+            assessment = _object(value["assessment"], "assessment", {"source", "content", "at", "citations"},
+                                 {"source", "content", "at"})
             _text(assessment["source"], "assessment.source", 256)
             _text(assessment["content"], "assessment.content", multiline=True)
             _text(assessment["at"], "assessment.at", 64)
+            if "citations" in assessment:
+                normalize_citations(assessment["citations"])
         elif result["belief"] is not None:
             raise ValueError("an assessed belief requires provenance")
     return result
@@ -199,13 +244,16 @@ def _checked_graph(graph: Any) -> dict[str, Any]:
             raise ValueError("conflict opening time must match its history")
     latest_observations = {}
     for observation in result["observations"]:
-        _object(observation, "observation", {"relation_id", "action", "context", "before", "after", "source", "content", "at"})
+        fields = {"relation_id", "action", "context", "before", "after", "source", "content", "at"}
+        _object(observation, "observation", fields | {"citations"}, fields)
         if observation["relation_id"] not in result["relations"]:
             raise ValueError("observation must name an existing relation")
         for field, limit in (("action", 200), ("context", 256), ("source", 256), ("content", 2048), ("at", 64)):
             _text(observation[field], f"observation.{field}", limit, multiline=field == "content")
         for field in ("before", "after"):
             _choice(observation[field], f"observation.{field}", STATES)
+        if "citations" in observation:
+            normalize_citations(observation["citations"])
         if "negative" in (observation["before"], observation["after"]) and observation["relation_id"] not in result["conflicts"]:
             raise ValueError("adverse observations require a persistent conflict case")
         latest_observations[observation["relation_id"]] = observation
@@ -258,7 +306,9 @@ def apply(graph: Any, payload: Any) -> tuple[dict[str, Any], dict[str, Any]]:
               "assess": {"relation_id", "belief", "source", "content"},
               "observe": {"relation_id", "action", "context", "before", "after", "source", "content"},
               "resolve": {"relation_id", "verdict"}}[operation] | {"operation"}
-    payload = _object(payload, "relationship operation", fields)
+    optional = {"citations"} if operation in {"assess", "observe"} else set()
+    payload = _object(payload, "relationship operation", fields | optional, fields)
+    citations = normalize_citations(payload["citations"]) if "citations" in payload else None
     at = datetime.now(timezone.utc).isoformat(timespec="microseconds")
     event: dict[str, Any] = {"operation": operation, "at": at}
     if operation == "node":
@@ -293,6 +343,8 @@ def apply(graph: Any, payload: Any) -> tuple[dict[str, Any], dict[str, Any]]:
             content = _text(payload["content"], "content", multiline=True)
             relation["belief"] = belief
             relation["assessment"] = {"source": source, "content": content, "at": at}
+            if citations is not None:
+                relation["assessment"]["citations"] = citations
             event["belief"] = belief
             if belief is not None and belief["negative"] > 0:
                 _conflict(graph, relation_id, source, at)
@@ -306,6 +358,8 @@ def apply(graph: Any, payload: Any) -> tuple[dict[str, Any], dict[str, Any]]:
                            "after": _choice(payload["after"], "after", STATES),
                            "source": _text(payload["source"], "source", 256),
                            "content": _text(payload["content"], "content", multiline=True)}
+            if citations is not None:
+                observation["citations"] = citations
             graph["observations"].append(observation)
             event["observation_index"] = len(graph["observations"]) - 1
             if observation["before"] == "negative" or observation["after"] == "negative":

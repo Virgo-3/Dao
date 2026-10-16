@@ -68,7 +68,20 @@
         <div id="decision-result" class="result-area" aria-live="polite"></div>
       </section>
       <section id="relationships-panel" role="tabpanel" aria-labelledby="relationships-tab" class="tool-panel" hidden>
-        <div class="tool-intro"><p>Record beliefs and observations; inspect unresolved conflicts.</p></div>
+        <div class="tool-intro"><p>Review proposed knowledge from conversation, then inspect accepted relationships.</p></div>
+        <div class="section-label"><span>Structure proposals</span><span id="proposal-count" class="count">0 pending</span></div>
+        <p class="field-help">Proposals stay separate from accepted knowledge until you accept them. Source links show the exact passage behind a proposal.</p>
+        <div id="structure-proposals" class="proposal-list" aria-live="polite"></div>
+        <details id="structure-editor" class="editor-details">
+          <summary>Stage a proposal <span class="summary-note">JSON · also works offline</span></summary>
+          <label class="field-label" for="structure-input">Rationale and operations</label>
+          <p id="structure-help" class="field-help">Start from your latest message to copy a cited passage into an editable claim proposal. This starter copies your words; edit its meaning, label, and operations before staging. For other passages, expand a conversation message’s Source details. Offsets count Unicode characters from zero; end is exclusive. Staging does not change accepted knowledge.</p>
+          <button id="structure-from-message" class="secondary-button full-width" data-mutation disabled>Start from latest message</button>
+          <textarea id="structure-input" class="code-input" rows="15" spellcheck="false" aria-describedby="structure-help" placeholder="Send a message, then use Start from latest message to prepare a cited proposal. Or enter your own rationale and operations with exact source citations." data-mutation></textarea>
+          <button id="structure-stage" class="primary-button full-width" data-mutation>Stage for review <span aria-hidden="true">→</span></button>
+        </details>
+        <p id="structure-status" class="field-help" role="status"></p>
+        <details class="relationship-details"><summary>Accepted structure and source passages</summary><div id="accepted-structure"></div></details>
         <div id="relationship-summary" class="relationship-summary" aria-live="polite"></div>
         <p class="field-help">Read coherence and coverage together.</p>
         <div class="section-label"><span>Unresolved conflicts</span><span id="conflict-count" class="count">0</span></div>

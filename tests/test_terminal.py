@@ -164,7 +164,7 @@ class TerminalTests(unittest.TestCase):
         payload = json.loads(target.read_text(encoding="utf-8"))
         self.assertEqual(payload["schema"], "dao-export-v1")
         self.assertEqual(payload["head"]["state"]["memory"], {"next": "Study"})
-        self.assertEqual(set(payload), {"schema", "config", "branches", "head", "history", "usage", "events", "relationships", "relationship_digest"})
+        self.assertEqual(set(payload), {"schema", "config", "branches", "head", "history", "usage", "events", "relationships", "relationship_digest", "messages", "dependencies"})
         self.assertNotIn("api_key", payload["config"])
         self.assertEqual(output.count("Export created"), 1)
         self.assertIn("already exists", output)

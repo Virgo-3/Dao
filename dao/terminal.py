@@ -30,6 +30,11 @@ HELP = """Chat by typing a message. Commands:
   /restore ID_PREFIX    Restore a unique reachable checkpoint as a new revision
   /remember KEY=VALUE   Save memory in the current branch
   /memory               Show this checkpoint's saved memory
+  /messages             Show source message IDs and original content
+  /propose PATH         Stage a structure proposal JSON for review
+  /proposals            Show pending and reviewed structure proposals
+  /accept ID            Accept a pending structure proposal
+  /reject ID            Reject a pending structure proposal
   /relationships        Show coherence, coverage, and reported observations
   /conflicts            Show unresolved relationship conflicts
   /relate PATH          Apply one relationship operation JSON (up to 128 KiB)
@@ -249,6 +254,12 @@ class Terminal:
                     self._write("\n" + self._tool_label(event["name"]) + "\n")
                     self._json(event["result"])
                     speaking = False
+                elif kind == "proposal":
+                    self._emit(display.feed("", final=True))
+                    display = _Display(self._secret)
+                    self._write("\nStructure proposal pending review. Use /proposals and /accept ID or /reject ID.\n")
+                    self._json(event["result"])
+                    speaking = False
                 elif kind in {"done", "error"}:
                     self.head = event["head"]
                     self._emit(display.feed("", final=True))
@@ -293,7 +304,7 @@ class Terminal:
             decisions = self.head["state"].get("decisions", [])
             if decisions:
                 self._json(decisions[-1]["result"])
-        elif command in {"/help", "/quit", "/branches", "/head", "/history", "/memory", "/relationships", "/conflicts", "/usage", "/verify"}:
+        elif command in {"/help", "/quit", "/branches", "/head", "/history", "/memory", "/messages", "/proposals", "/relationships", "/conflicts", "/usage", "/verify"}:
             self._no_argument(requested_command, argument)
             if command == "/quit":
                 return False
@@ -316,6 +327,16 @@ class Terminal:
                     self._write(self.memory_empty + "\n")
                 for key, value in memory.items():
                     self._write(f"{key} = {value}\n")
+            elif command == "/messages":
+                messages = self.app.message_records(self.head["state"])
+                if not messages:
+                    self._write("No source messages at this revision.\n")
+                self._json(messages)
+            elif command == "/proposals":
+                proposals = self.head["state"].get("proposals", [])
+                if not proposals:
+                    self._write("No structure proposals at this revision.\n")
+                self._json(proposals)
             elif command == "/usage":
                 self._json(self.app.store.usage())
             elif command in {"/relationships", "/conflicts"}:
@@ -364,7 +385,15 @@ class Terminal:
                 raise ValueError(f"{self.revision_noun.title()} prefix is ambiguous; use more characters")
             result = self._mutate("/api/restore", commit_id=candidates[0]["id"])
             self._write(f"Restored as {self.revision_noun} {result['head']['id'][:12]}; usage is retained.\n")
-        elif command in {"/decision", "/audit", "/artifact", "/relate"}:
+        elif command in {"/accept", "/reject"}:
+            if not argument or len(argument.split()) != 1:
+                raise ValueError(f"Use {command} ID")
+            decision = "accept" if command == "/accept" else "reject"
+            result = self._mutate("/api/structure/review", proposal_id=argument, decision=decision)
+            self._write(f"Structure proposal {argument} {'accepted' if decision == 'accept' else 'rejected'} at {self.revision_noun} {self.head['id'][:12]}.\n")
+            if result.get("result") is not None:
+                self._json(result["result"])
+        elif command in {"/decision", "/audit", "/artifact", "/relate", "/propose"}:
             payload = self._load(argument)
             if command == "/decision":
                 result = self._mutate("/api/decision", problem=payload)
@@ -373,9 +402,12 @@ class Terminal:
                     raise ValueError("Imported JSON cannot select a branch or override the expected head")
                 if command == "/artifact" and set(payload) - {"name", "content", "verdict_id"}:
                     raise ValueError(f"{self.artifact_noun} JSON accepts only name, content, and verdict_id")
-                route = "/api/relationships" if command == "/relate" else "/api" + command
+                route = "/api/relationships" if command == "/relate" else "/api/structure/propose" if command == "/propose" else "/api" + command
                 result = self._mutate(route, **payload)
-            if result.get("result") is not None:
+            if command == "/propose":
+                self._write("Structure proposal pending review. Use /proposals and /accept ID or /reject ID.\n")
+                self._json(result.get("result", result.get("proposal", result)))
+            elif result.get("result") is not None:
                 self._json(result["result"])
             else:
                 self._write(f"{self.artifact_noun} saved at {self.revision_noun} {self.head['id'][:12]}.\n")

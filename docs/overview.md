@@ -48,7 +48,7 @@ export DAO_MODEL=gpt-4.1-mini
 python -m dao
 ```
 
-Use a Responses API model available to your account. Live inference sends the current conversation, saved memory, and relationship context to OpenAI. The API key is sent for provider authentication and excluded from Dao's public configuration, state, and exports. The adapter uses the [Responses streaming API](https://developers.openai.com/api/docs/guides/streaming-responses), sets `store=false`, and offers a bounded, read-only `evaluate_decision` tool. It does not expose shell execution or external actions. Live billing and model availability were not tested during offline verification.
+Use a Responses API model available to your account. Live inference sends the current conversation, saved memory, accepted relationship context, and pending structure proposals to OpenAI. The API key is sent for provider authentication and excluded from Dao's public configuration, state, and exports. The adapter uses the [Responses streaming API](https://developers.openai.com/api/docs/guides/streaming-responses), sets `store=false`, and offers bounded `evaluate_decision` and `propose_structure` tools. The first evaluates data; the second stages citation-backed updates for operator review. The model cannot accept proposals or perform external actions. Live billing and model availability were not tested during offline verification.
 
 `.env.example` documents the settings; Dao reads **process environment variables**, not `.env` files. Optional `pip install .` installs the `dao` command and static assets.
 
@@ -67,7 +67,7 @@ Use a Responses API model available to your account. Live inference sends the cu
 
 | Term | Meaning |
 | --- | --- |
-| State | The messages, memory, decisions, audits, relationships, and artifacts at a revision |
+| State | The messages, memory, decisions, audits, relationships, structure proposals, and artifacts at a revision |
 | Revision | An immutable saved snapshot with a link to its parent |
 | Checkpoint | The revision currently being viewed or selected for branching or restoration |
 | Branch | A named history whose head points to its latest revision |
@@ -87,7 +87,7 @@ Use a Responses API model available to your account. Live inference sends the cu
 | Decisions | Bayes posterior optimization, mean-variance preferences, rollback and irreversibility costs, explicit wait/abstain options |
 | Usage | Atomic lifetime token reservations across branches; final usage is idempotent; unknown failures retain conservative estimated charges |
 | Conversation context | Up to 1 MiB (1,048,576 bytes) of serialized UTF-8 messages, saved context, and system instructions combined |
-| Model tools | Up to three model requests per turn, each reserved and accounted; one read-only decision tool |
+| Model tools | Up to three model requests per turn, each reserved and accounted; one decision evaluation or structure proposal call per response |
 | Browser access | Loopback-only server, Host/Origin checks, mutation CSRF token, restrictive CSP, no remote assets |
 
 This is a **single-user local application**. Keep it bound to loopback; it has no authentication for public internet access. The owner of the database is trusted. Hash chains detect inconsistent edits, but provide no signing identity. Detecting replacement with a fully consistent older backup requires an externally trusted digest. Restoring a checkpoint preserves usage and cannot undo external actions. This release has no tools that perform external actions.
@@ -105,4 +105,4 @@ node --check dao/static/app.js
 
 The suite covers Bayesian information value, abstention and reversibility, contradictory evidence, content-bound authorization, relationship conflict persistence and action exclusion, stale/concurrent updates, global budgets, stream failures, durable restart, hash tampering, HTTP origin/CSRF protection, terminal interactions, separate application launchers, and adapter parsing with synthetic provider streams. GitHub Actions runs on Windows/Linux with Python 3.11/3.14. Node is only needed for the JavaScript syntax checks. A separate Windows workflow builds and smoke-tests both executables and publishes tagged releases.
 
-See [architecture](architecture.md), [relationships](relationships.md), [decision model and derivation](decision-model.md), and [security boundaries](../SECURITY.md).
+See [architecture](architecture.md), [conversation structure and source passages](structure.md), [relationships](relationships.md), [decision model and derivation](decision-model.md), and [security boundaries](../SECURITY.md).

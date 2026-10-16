@@ -1,12 +1,16 @@
 # Relationships, uncertainty, and conflicts
 
-Dao saves a directed relationship graph in each branch's revision history. Nodes identify people, goals, claims, or actions. A relation connects two nodes and describes an effect, evidence support, compatibility, or resource competition. You supply this model and its assumptions.
+Dao saves a directed relationship graph in each branch's revision history. Nodes identify people, goals, claims, actions, decisions, assumptions, requirements, conditions, or analysis. A relation connects two nodes and describes an effect, evidence support, compatibility, resource competition, dependency, contradiction, or supersession. You supply this model and its assumptions, or review a live model's proposed additions.
 
 The graph separates a relation's definition, its assessed belief, reported observations, and permission to resolve a conflict. A belief assigns probabilities to positive, neutral, and negative outcomes, or is explicitly unknown. An observation records a reported change. Evidence and observations, including text imported from documents, are data supplied for review.
+
+Nodes and relation definitions can include `citations`; assessment and observation operations accept the same optional field. Each citation references an exact passage of a nonfailed message in the current checkpoint. Structure proposals require citations for every operation and remain pending until accepted. See [conversation structure](structure.md) for the JSON format and review workflow.
 
 ## Use the browser or terminal
 
 Open the **Relationships** tab. Its summary shows conditional coherence, assessed coverage, unknown weight, and unresolved severe conflicts. Expand a conflict to inspect its source, history, and action scope. The graph and transition estimates are available below the conflict list.
+
+The same tab lists pending and reviewed structure proposals, their operations, and source links. **Accept** saves every operation together; **Reject** retains the proposal without applying it. **Accepted structure and source passages** shows saved records and their citations. Manual proposal staging also works offline.
 
 Example buttons load one operation at a time. Review each operation and select **Save operation**. They form a sequence: create the action and goal, define their relation, then assess it. Example sources are placeholders; replace them with your evidence. The editor applies operations to the current branch and checkpoint. Saving creates a revision, refreshes the summary, and requires a new artifact audit for the changed relationship state.
 
@@ -29,6 +33,8 @@ Save these as three separate JSON files and apply them in order:
 ```
 
 Node importance expresses how much a person, goal, claim, or action matters in your model. Relation weight expresses the importance of its modeled connection. These values are separate from evidence reliability and token usage. Node and relation definitions are fixed once saved. A new definition requires a new identifier and remains visible in revision history.
+
+The additional relation kinds are `depends_on`, `contradicts`, and `supersedes`. For `depends_on`, the source depends on the target: a decision can depend on a requirement, or analysis on an assumption. The snapshot's `dependencies` map lists each node's transitive dependents, excluding itself even in cycles. Contradiction and supersession are declarations; they do not prove inconsistency, delete old definitions, alter beliefs, or automatically resolve conflicts. Existing importance, weight, `severe`, and `actions` fields remain required.
 
 Action scope contains **exact decision action names**, such as `Full launch` in the built-in decision example. An empty action array is global. The operator determines applicability; Dao does not infer aliases or whether two differently named actions have equivalent effects.
 

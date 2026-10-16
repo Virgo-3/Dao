@@ -2,13 +2,15 @@
 
 **A conversation with room to change your mind.**
 
-Dao is a local conversational workspace where you can follow a thought, branch into another possibility, and return to an earlier checkpoint. Talk naturally: Dao can remember a decision and its reason, keep a tentative option tentative, revisit an assumption, and recall the original words behind your thinking.
+Dao is a local conversational workspace that keeps your conversation and its semantic structure together: decisions, reasons, possibilities, assumptions, and the passages they came from. Follow a thought, explore another direction, and return to the reasoning behind an earlier choice.
 
-Use the browser workspace or the streaming terminal. Both work with the same saved history.
+Talk naturally in the browser workspace or the streaming terminal. Both use the same saved history. A tentative idea stays tentative, a decision can keep its reasons attached, and a correction preserves the earlier context.
 
 **The default is an offline demo.** Common memory, recall, and branching phrases work locally without an account, API key, or model call. Open-ended replies are short canned responses; enable live AI for a model-backed conversation.
 
-![Dao browser workspace](docs/workspace.jpg)
+![Dao conversation beside remembered decisions, reasons, and tentative ideas](docs/workspace.jpg)
+
+*Conversation and remembered context, side by side. Shown with offline demo data.*
 
 ## Get started
 
@@ -46,7 +48,7 @@ Python is bundled. To use the browser workspace:
 
 The executable is unsigned; the package includes `SHA256SUMS` for verification. See the [Windows guide](docs/windows.md) for checksums and build instructions.
 
-## Try another direction
+## Start with a conversation
 
 Send these messages in the browser or terminal, one at a time:
 
@@ -61,27 +63,42 @@ Go back to main
 
 Dao records SQLite as the decision and offline operation as its reason. Postgres remains an option under consideration. The new assumption preserves the earlier reasoning and marks the related decision for reconsideration. Recall returns the saved reason. Exploring another direction creates an `alternative` branch, or a numbered alternative if that name exists; going back to `main` returns to its own saved context.
 
-Use `/history` to inspect saved revisions and `/restore ID_PREFIX` to restore a reachable checkpoint as a new revision. Earlier history and recorded usage remain available. `/help` lists commands; `/quit` exits.
+Local recognition covers common phrases rather than every paraphrase. Recognized competing choices or a later retraction prompt clarification before a new decision is saved. See [talking with Dao](docs/conversation.md) for phrases and boundaries.
 
-The browser opens on the conversation. **History** reveals branches and revisions; **Details** reveals source passages and advanced **Decision**, **Relationships**, **Audit**, and **Usage** tools. Editors and relationship diagnostics stay collapsed until needed. Routine remembering needs no JSON or proposal review. See [talking with Dao](docs/conversation.md) for phrases and boundaries, or the [terminal guide](docs/terminal.md) for optional commands.
+In the terminal, `/history` lists saved revisions and `/restore ID_PREFIX` restores a reachable checkpoint as a new revision. Earlier history and recorded usage remain available. `/help` lists commands; `/quit` exits. See the [terminal guide](docs/terminal.md).
+
+## See what Dao remembers
+
+The browser opens on the conversation, with the current branch visible above it. Starter prompts fill an editable message; send it when you are ready to save it. **History** reveals branches and revisions. **Context & tools** opens on **Memory**, organized by the stance recorded with each note:
+
+- **Decided** — stated choices and the reasons they depend on.
+- **Considering** — possibilities that are still open.
+- **Working context** — beliefs, requirements, and assumptions you have shared.
+- **Mentioned & other notes** — context without a recorded commitment.
+
+Expand **Original words** to inspect a source passage, then select **View original message** to highlight it in the conversation. Later corrections flag affected decisions for reconsideration. Explicitly replaced notes remain inspectable under **Earlier context**, and named memory entries appear separately.
+
+Memory follows the branch you are viewing. Exploring an alternative keeps its subsequent notes separate; switching back restores that branch's own context. On smaller screens, the context panel opens separately, with a control to return to the conversation.
+
+Routine remembering needs no JSON or proposal review. A pending advanced suggestion appears in Memory with a link to its review in **Structure**. Editors and relationship diagnostics stay collapsed until needed.
 
 ## What you can work with
 
-| Tool | What it does |
+| Where | What you can do |
 | --- | --- |
-| **Conversation memory** | Keep decisions, reasons, options, and assumptions with their exact source passages; recall them in conversation. |
-| **History and branches** | Save checkpoints, explore alternatives independently, and restore earlier state. |
-| **Decisions** | Compare acting, waiting for more information, and abstaining using explicit scenarios, probabilities, payoffs, costs, and reversibility. |
-| **Relationships** | Record directed relationships, assessed beliefs, and reported observations. Inspect coverage and unresolved conflicts. |
-| **Structure proposals** | Review citation-backed updates before accepting them into the graph; trace declared dependencies to affected conclusions. |
-| **Evidence review** | Review a claim under an explicit evidence policy. Save named content when the current verdict and relationship state permit it. |
+| **History** | Inspect saved revisions, explore branches independently, and restore earlier state. |
+| **Decision** | Compare acting, waiting for more information, and abstaining. Inspect immediate utility, signal value, risk penalties, and reversibility from explicit inputs. |
+| **Structure** | Follow directed dependencies and source passages, review advanced proposals, and inspect assessed beliefs, reported observations, coverage, and unresolved conflicts. |
+| **Audit** | Review a claim against supplied evidence. Set the required source count and reliability threshold in **Review rule**; save named content when its current verdict and relationship state permit it. |
 | **Usage** | Track token usage across branches, restores, and failed requests, with optional estimated costs. |
 
-The decision model can value waiting when an observation could change the best choice. Its result depends on the assumptions you enter. Relationship estimates describe reported associations, and an audit verdict records whether submitted evidence meets the policy. You supply source reliability; the review does not independently establish factual truth.
+The advanced tabs are inside **Context & tools**. **Export conversation** and **Verify history** are above them.
+
+The decision model can value waiting when an observation could change the best choice. Its result depends on the assumptions you enter. Relationship estimates describe reported associations. An audit counts distinct supporting sources at each source's lowest submitted reliability; any contradiction contests the claim. You supply source reliability, and meeting the review policy does not independently establish factual truth. See the [decision and evidence rules](docs/decision-model.md).
 
 Unresolved severe relationship conflicts exclude their declared actions from decision calculations. Resolving a conflict requires a current evidence review; changing a belief alone leaves it open. The [relationship guide](docs/relationships.md) explains the workflow.
 
-Advanced structure proposals support changes that need explicit review, including relationship assessments and policy settings. In **Details → Relationships**, inspect a proposal's source passages before accepting or rejecting it. “Keep that” or “Reject that suggestion” can review a single unambiguous pending suggestion. The [structure guide](docs/structure.md) documents optional JSON imports and dependency semantics.
+Advanced structure proposals support changes that need explicit review, including relationship assessments and policy settings. In **Context & tools → Structure**, inspect a proposal's source passages before accepting or rejecting it. “Keep that” or “Reject that suggestion” can review a single unambiguous pending suggestion. The [structure guide](docs/structure.md) documents optional JSON imports and dependency semantics.
 
 ## Enable live AI
 

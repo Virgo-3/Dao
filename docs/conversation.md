@@ -55,9 +55,15 @@ Reasons and corrections remain inspectable. A `depends_on` link says its source 
 
 Routine memory and recall activities are saved with completed assistant replies. Their source links let you inspect the original passages. Failed turns keep a labeled partial reply and usage evidence, while their graph and proposal changes are rolled back; no successful activity is announced for an uncommitted change. Explicit `/remember key=value` memory remains available separately for users who want it.
 
-## History and details
+## History, context, and tools
 
-The browser keeps **History** and **Details** closed initially. History exposes branches and revisions. Details exposes source passages and optional numeric decisions, relationship review, audits, usage, export, and integrity checks. Advanced JSON editors and relationship diagnostics stay collapsed until needed. The terminal offers the same conversation behavior plus [optional commands](terminal.md).
+The browser keeps **History** and **Context & tools** closed initially. History exposes branches and revisions.
+
+**Context & tools → Memory** shows settled decisions, tentative possibilities, working context, and other mentions. Decision cards show their dependency reasons. Later corrections flag affected decisions for reconsideration without changing their stance. Explicitly replaced notes remain under **Earlier context**, and **Original words** links back to the exact conversation passage. Named memory entries appear separately.
+
+The **Structure** tab holds advanced proposals and relationship review; **Decision**, **Audit**, and **Usage** provide numeric comparisons, evidence review, and accounting. Export and integrity checks are above the tabs.
+
+The current branch is always visible above the conversation. Starter prompts fill an editable message; nothing is saved until you send it. On smaller screens, Context & tools fills the workspace and **Back to conversation** returns to the chat. Advanced JSON editors and relationship diagnostics stay collapsed until needed. The terminal offers the same conversation behavior plus [optional commands](terminal.md).
 
 A new alternative begins from the completed source turn. A switch to an existing branch keeps that branch's graph, memory, and other semantic state; only the control message and reply are appended there. Finalizing the source reply and destination navigation is atomic. This prevents a source branch's notes from overwriting the destination. Each branch remains available in History, and restoring a reachable checkpoint creates a new revision while retaining history and usage.
 

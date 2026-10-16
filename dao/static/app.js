@@ -35,9 +35,9 @@ function historicalView() {
 }
 
 function formatNumber(value, precision = 2) {
-  return typeof value === "number" && Number.isFinite(value)
-    ? value.toLocaleString(undefined, { maximumFractionDigits: precision })
-    : "—";
+  if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+  if (value !== 0 && (Math.abs(value) < 10 ** -precision || Math.abs(value) >= 1e9)) return value.toExponential(3);
+  return value.toLocaleString(undefined, { maximumFractionDigits: precision });
 }
 
 function formatTime(value) {
@@ -80,6 +80,7 @@ function setBusy(value) {
   $("branch-select").disabled = busy || !ready;
   $("export-button").disabled = busy || !ready;
   $("send-label").textContent = busy ? "Working" : "Send";
+  $("send-button").disabled = busy || !ready || !$("message-input").value.trim();
   $("chat-form").setAttribute("aria-busy", String(busy));
 }
 
@@ -179,7 +180,7 @@ function renderMessage(message, streaming = false) {
   if (role === "assistant" && !streaming && !["failed", "interrupted"].includes(message.status)) appendActivities(body, message.activities);
   if (message.id) {
     const source = node("details", "message-source");
-    source.append(node("summary", "", "Details"), node("p", "field-help", `Message source · ${message.id}`));
+    source.append(node("summary", "", "Source details"), node("p", "field-help", `Message source · ${message.id}`));
     const citation = messageCitation(message);
     if (!citation) {
       source.append(node("p", "field-help", "This message has no citable passage because its turn failed or its content is empty or contains only unsupported controls."));
@@ -218,11 +219,10 @@ function renderConversation() {
   $("starter-prompts").hidden = messages.length > 0;
   if (!messages.length) {
     const empty = node("section", "empty-state");
-    const emblem = daoIcon("empty-emblem");
-    const heading = node("h2");
-    heading.textContent = "Room to think.";
-    const copy = node("p", "", "Think aloud. Dao can remember decisions, revisit assumptions, and explore alternatives with you.");
-    empty.append(emblem, heading, copy);
+    empty.append(node("span", "empty-overline", "A thought can be a beginning."),
+      node("h2", "", "Where are we starting?"),
+      node("p", "", "Think aloud. Keep the reasons behind a choice.\nLeave room to change your mind."),
+      node("span", "empty-footnote", "Your conversation becomes context you can return to."));
     $("messages").append(empty);
   } else {
     messages.forEach((message) => renderMessage(message));
@@ -240,6 +240,9 @@ function renderBranches() {
     $("branch-select").append(option);
   });
   $("revision-label").textContent = branch === "main" ? "Main conversation · saved" : `Exploring ${branch} · saved`;
+  $("branch-current-name").textContent = branch;
+  $("branch-current").title = `Current branch: ${branch}. View branches and history.`;
+  $("context-scope").textContent = `Remembered in ${branch}.`;
 }
 
 function renderHistory() {
@@ -341,6 +344,7 @@ function renderWorkspace() {
   renderUsage();
   renderRelationships();
   renderStructure();
+  renderContext();
   const saved = versionedState();
   if (saved.decisions?.length) renderDecision(saved.decisions[saved.decisions.length - 1].result);
   else $("decision-result").replaceChildren();
@@ -348,7 +352,7 @@ function renderWorkspace() {
   else { $("audit-result").replaceChildren(); resetVerdict(); }
   const config = workspace?.config || {};
   $("provider-badge").replaceChildren(node("span", "status-dot"), document.createTextNode(config.provider === "demo" ? "Offline demo" : config.provider === "openai" ? `Live · ${config.model || "OpenAI"}` : "Connected"));
-  $("provider-description").textContent = config.provider === "demo" ? "Demo replies · no model calls" : "Your conversation is sent to the configured model.";
+  $("provider-description").textContent = config.provider === "demo" ? "Offline demo · remembering, recall, and branching work locally. Open-ended replies are examples." : "Live conversation · messages are sent to your configured model. Remembered context stays with this branch.";
   $("provider-badge").title = config.provider === "demo" ? "Offline demo with deterministic replies. No AI model or external API is used." : "Connected model provider";
   setBusy(busy);
 }
@@ -427,13 +431,115 @@ function appendCitations(container, value) {
   const list = node("ul", "source-citations");
   citations.forEach((citation) => {
     const item = node("li");
-    const link = node("button", "text-button source-link", `Source: ${citation.message_id} [${citation.start}:${citation.end}]`);
+    const link = node("button", "text-button source-link", "View original message ↗");
+    link.title = `Source: ${citation.message_id} [${citation.start}:${citation.end}]`;
     link.type = "button";
     link.addEventListener("click", () => showPassage(citation));
     item.append(link, node("blockquote", "source-quote", citation.quote || ""));
     list.append(item);
   });
   container.append(list);
+}
+
+function renderContext() {
+  const state = versionedState();
+  const graph = state.relationships || {};
+  const records = graph.nodes || {};
+  const relations = Object.values(graph.relations || {});
+  const superseded = new Set(relations.filter((relation) => relation.kind === "supersedes").map((relation) => relation.target));
+  const notes = Object.values(records).sort((left, right) => String(right.created_at || "").localeCompare(String(left.created_at || "")) || left.id.localeCompare(right.id));
+  const active = notes.filter((record) => !superseded.has(record.id));
+  const dependenciesBySource = new Map();
+  relations.filter((relation) => relation.kind === "depends_on" && records[relation.target]).forEach((relation) => {
+    const dependencies = dependenciesBySource.get(relation.source) || [];
+    dependencies.push(records[relation.target]);
+    dependenciesBySource.set(relation.source, dependencies);
+  });
+  const legacy = Object.entries(state.memory || {});
+  const pending = (state.proposals || []).filter((proposal) => proposal.status === "pending").length;
+  const changed = new Set();
+  const earlier = new Set();
+  messageRecords().filter((message) => message.role === "assistant" && !["failed", "interrupted"].includes(message.status)).forEach((message) => {
+    (message.activities || []).filter((activity) => activity.kind === "assumption_changed").forEach((activity) => {
+      (activity.affected_node_ids || []).forEach((id) => changed.add(id));
+      (activity.previous_node_ids || []).forEach((id) => earlier.add(id));
+    });
+  });
+  const container = $("context-notes");
+  container.replaceChildren();
+  $("context-summary").textContent = `${active.length} ${active.length === 1 ? "note" : "notes"} · ${relations.length} ${relations.length === 1 ? "connection" : "connections"}${legacy.length ? ` · ${legacy.length} named entries` : ""}`;
+  if (pending) {
+    const review = node("button", "context-review", `${pending} ${pending === 1 ? "suggestion needs" : "suggestions need"} your review →`);
+    review.type = "button";
+    review.addEventListener("click", () => selectTab($("relationships-tab")));
+    container.append(review);
+  }
+  function appendRecord(parent, record) {
+    const card = node("article", `context-card stance-${record.stance || "unrecorded"}`);
+    const heading = node("div", "context-card-heading");
+    heading.append(node("h4", "", record.label || record.id), node("span", "context-kind", titleCase(record.kind || "note")));
+    card.append(heading);
+    if (!record.stance) card.append(node("p", "field-help", "Stance not recorded"));
+    if (changed.has(record.id)) card.append(node("p", "context-change", "An updated assumption makes this worth revisiting."));
+    else if (earlier.has(record.id)) card.append(node("p", "context-change", "Earlier context · a later note may change this assumption."));
+    if (record.content && record.stance !== "decided" && record.content !== record.label) card.append(node("p", "context-content", record.content));
+    const dependencies = dependenciesBySource.get(record.id) || [];
+    if (dependencies.length) {
+      card.append(node("p", "context-reason-label", record.stance === "decided" ? "Reasoning rests on" : "Depends on"));
+      const list = node("ul", "context-reasons");
+      dependencies.forEach((dependency) => {
+        const item = node("li", "", dependency.label || dependency.id);
+        item.append(node("span", "stance-label", stanceLabel(dependency)));
+        list.append(item);
+      });
+      card.append(list);
+    }
+    if (record.citations?.length) {
+      const source = node("details", "context-source");
+      source.append(node("summary", "", "Original words"));
+      appendCitations(source, record);
+      card.append(source);
+    }
+    parent.append(card);
+  }
+  const groups = [
+    ["Decided", "Choices you have stated as settled.", (record) => record.stance === "decided"],
+    ["Considering", "Possibilities that are still open.", (record) => record.stance === "considering"],
+    ["Working context", "Beliefs, requirements, and assumptions you have shared.", (record) => record.stance === "believed"],
+    ["Mentioned & other notes", "Context without a recorded commitment.", (record) => !["decided", "considering", "believed"].includes(record.stance)]
+  ];
+  groups.forEach(([label, description, includes]) => {
+    const members = active.filter(includes);
+    if (!members.length) return;
+    const section = node("section", "context-group");
+    section.append(node("h3", "", label), node("p", "context-group-description", description));
+    members.forEach((record) => appendRecord(section, record));
+    container.append(section);
+  });
+  if (!notes.length && !legacy.length) {
+    const empty = node("div", "context-empty");
+    empty.append(node("span", "context-empty-mark", "↳"), node("h4", "", "Let the context grow."),
+      node("p", "", "Tell Dao what you chose and why, or float an idea with “Maybe…”. Your notes will appear here with their sources."),
+      node("p", "field-help", "If a choice changes within the same message, Dao asks which decision to remember."));
+    container.append(empty);
+  }
+  if (legacy.length) {
+    const section = node("section", "context-group");
+    section.append(node("h3", "", "Named memory"));
+    legacy.forEach(([key, value]) => {
+      const card = node("article", "context-card");
+      card.append(node("h4", "", key), node("p", "context-content", scalar(value)));
+      section.append(card);
+    });
+    container.append(section);
+  }
+  const previous = notes.filter((record) => superseded.has(record.id));
+  if (previous.length) {
+    const details = node("details", "earlier-context");
+    details.append(node("summary", "", `Earlier context · ${previous.length} replaced ${previous.length === 1 ? "note" : "notes"}`));
+    previous.forEach((record) => appendRecord(details, record));
+    container.append(details);
+  }
 }
 
 function renderStructure() {
@@ -588,7 +694,7 @@ function addEvidence(initial = {}) {
   reliability.type = "number";
   reliability.min = "0";
   reliability.max = "1";
-  reliability.step = "0.05";
+  reliability.step = "any";
   reliability.value = initial.reliability ?? 0.8;
   reliability.dataset.mutation = "";
   reliabilityLabel.append(reliability);
@@ -613,6 +719,8 @@ function renderDecision(result) {
     container.append(node("p", "relationship-warning", `Withheld by unresolved severe conflicts: ${result.blocked_actions.map((action) => typeof action === "string" ? action : action.name || action.action || scalar(action)).join(", ")}`));
   }
   const metrics = [
+    ["Best immediate utility", result.baseline_utility],
+    [result.signal_analysis?.length ? "After modeled signal" : "Without a modeled signal", result.expected_utility_after_signal],
     ["Value of new information", result.expected_value_of_information],
     ["Utility of waiting", result.wait_utility]
   ].filter(([, value]) => typeof value === "number");
@@ -624,18 +732,22 @@ function renderDecision(result) {
   const scores = Array.isArray(result.scores) ? result.scores : [];
   const utilities = scores.map((score) => score.adjusted_utility ?? score.utility ?? score.expected_utility ?? score.score ?? 0);
   const minimum = Math.min(0, ...utilities);
-  const maximum = Math.max(1, ...utilities);
+  const maximum = Math.max(0, ...utilities);
+  const scale = Math.max(Math.abs(minimum), Math.abs(maximum)) || 1;
   scores.forEach((score, index) => {
     const card = node("div", "score-card");
     const label = node("div", "score-label");
     label.append(node("span", "", score.name || score.action || `Action ${index + 1}`), node("span", "score-value", formatNumber(utilities[index], 3)));
+    label.lastChild.title = String(utilities[index]);
     card.append(label);
     const track = node("div", "score-track");
     const fill = node("span");
-    fill.style.width = `${Math.max(0, Math.min(100, 100 * (utilities[index] - minimum) / (maximum - minimum)))}%`;
+    const fraction = (utilities[index] / scale - minimum / scale) / ((maximum / scale - minimum / scale) || 1);
+    fill.style.width = `${Math.max(0, Math.min(100, 100 * fraction))}%`;
     track.append(fill);
     track.setAttribute("aria-hidden", "true");
     card.append(track);
+    card.append(node("p", "score-caption", `Mean net payoff ${formatNumber(score.expected_net_payoff, 3)} · Risk penalty ${formatNumber(score.risk_penalty, 3)} · ${formatNumber((score.reversibility || 0) * 100, 0)}% reversible`));
     container.append(card);
   });
   addJsonDetails(container, result);
@@ -653,6 +765,12 @@ function renderAudit(result) {
   const reasons = Array.isArray(result.reasons) ? result.reasons : result.reasons ? [result.reasons] : [];
   reasons.forEach((reason) => card.append(node("p", "", scalar(reason))));
   container.append(card);
+  if (result.metrics) {
+    const metrics = node("div", "usage-totals");
+    metrics.append(metricCard(`${result.metrics.supporting_source_count} / ${result.metrics.require_sources}`, "Supporting sources / required"),
+      metricCard(`${formatNumber(result.metrics.support_score, 6)} / ${formatNumber(result.metrics.threshold, 6)}`, "Reliability / threshold"));
+    container.append(metrics);
+  }
   addJsonDetails(container, result, "Inspect evidence and verdict");
   auditVerdict = result;
   updateArtifactGate();
@@ -746,7 +864,7 @@ async function submitChat() {
       await refresh(completedBranch);
       if (proposalCount) {
         $("structure-status").textContent = "Dao has a knowledge suggestion. Say “Keep that” to remember it, or review it here.";
-        notify("Dao has a knowledge suggestion. Say “Keep that” to remember it, or open Details to review it.");
+        notify("Dao has a knowledge suggestion. Say “Keep that” or review it in Context & tools → Structure.");
       }
     } catch (error) {
       assistant.item.classList.remove("streaming");
@@ -763,19 +881,31 @@ $("chat-form").addEventListener("submit", (event) => { event.preventDefault(); s
 $("message-input").addEventListener("keydown", (event) => {
   if (event.key === "Enter" && !event.shiftKey && !event.isComposing) { event.preventDefault(); submitChat(); }
 });
+function usePrompt(text) {
+  if (busy || !ready) return;
+  if (!wideLayout.matches) setToolsOpen(false);
+  const input = $("message-input");
+  input.value = text;
+  input.focus();
+  const placeholder = /\[[^\]]+\]/.exec(text);
+  if (placeholder) input.setSelectionRange(placeholder.index, placeholder.index + placeholder[0].length);
+  setBusy(false);
+}
 document.querySelectorAll("[data-prompt]").forEach((button) => {
-  button.addEventListener("click", () => { $("message-input").value = button.dataset.prompt; $("message-input").focus(); });
+  button.addEventListener("click", () => usePrompt(button.dataset.prompt));
 });
+$("message-input").addEventListener("input", () => setBusy(busy));
 
 const tabs = [...document.querySelectorAll("[role=tab]")];
 const wideLayout = window.matchMedia("(min-width: 1200px)");
 
 function setToolsOpen(open) {
+  if (open && !wideLayout.matches) setHistoryOpen(false);
   const focusedInTools = $("workspace-tools").contains(document.activeElement);
   $("app-shell").classList.toggle("tools-open", open);
   $("workspace-tools").hidden = !open;
   $("tools-toggle").setAttribute("aria-expanded", String(open));
-  const label = open ? wideLayout.matches ? "Hide details" : "Back to conversation" : "Details";
+  const label = open ? wideLayout.matches ? "Hide context" : "Back to conversation" : "Context & tools";
   $("tools-toggle").setAttribute("aria-label", label);
   if (open && !wideLayout.matches) {
     const shortLabel = node("span", "utility-short", "← Chat");
@@ -786,14 +916,18 @@ function setToolsOpen(open) {
 }
 
 function setHistoryOpen(open) {
+  if (open && !wideLayout.matches) setToolsOpen(false);
   $("app-shell").classList.toggle("history-open", open);
   $("workspace-history").hidden = !open;
   $("history-toggle").setAttribute("aria-expanded", String(open));
+  $("branch-current").setAttribute("aria-expanded", String(open));
   $("history-toggle").textContent = open ? "Hide history" : "History";
+  if (open) $("history-details").open = true;
 }
 
 $("tools-toggle").addEventListener("click", () => setToolsOpen($("workspace-tools").hidden));
 $("history-toggle").addEventListener("click", () => setHistoryOpen($("workspace-history").hidden));
+$("branch-current").addEventListener("click", () => { setHistoryOpen($("workspace-history").hidden); if (!$("workspace-history").hidden) $("branch-select").focus(); });
 $("alert-close").addEventListener("click", () => {
   clearError();
   if (errorFocus?.isConnected && errorFocus.getClientRects().length) errorFocus.focus();
@@ -802,6 +936,9 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !wideLayout.matches && !$("workspace-tools").hidden) {
     setToolsOpen(false);
     $("tools-toggle").focus();
+  } else if (event.key === "Escape" && !$("workspace-history").hidden) {
+    setHistoryOpen(false);
+    $("history-toggle").focus();
   }
 });
 wideLayout.addEventListener("change", () => setToolsOpen(!$("workspace-tools").hidden));
@@ -869,7 +1006,7 @@ function renderDecisionPreview() {
   }
   const actions = Array.isArray(problem?.actions) ? problem.actions : [];
   const scenarios = Array.isArray(problem?.scenarios) ? problem.scenarios : [];
-  container.append(node("div", "section-label", `${actions.length} actions · ${scenarios.length} scenarios`));
+  container.append(node("div", "section-label", `${actions.length} ${actions.length === 1 ? "action" : "actions"} · ${scenarios.length} ${scenarios.length === 1 ? "scenario" : "scenarios"}`));
   const list = node("ul", "model-actions");
   actions.forEach((action) => list.append(node("li", "", action?.name || "Unnamed action")));
   container.append(list);
@@ -976,15 +1113,19 @@ $("add-evidence").addEventListener("click", () => addEvidence());
 $("audit-run").addEventListener("click", () => mutate(async () => {
   const claim = $("audit-claim").value.trim();
   if (!claim) throw new Error("Enter a claim to review.");
+  const threshold = $("audit-threshold").valueAsNumber;
+  const require_sources = $("audit-sources").valueAsNumber;
+  if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1) throw new Error("The reliability threshold must be between 0 and 1.");
+  if (!Number.isSafeInteger(require_sources) || require_sources < 1) throw new Error("Required sources must be a positive whole number.");
   const evidence = [...$("evidence-list").querySelectorAll(".evidence-card")].map((card) => {
-    const reliability = Number(card.querySelector(".evidence-reliability").value);
+    const reliability = card.querySelector(".evidence-reliability").valueAsNumber;
     const source = card.querySelector(".evidence-source").value.trim();
     const content = card.querySelector(".evidence-content").value.trim();
     if (!source || !content) throw new Error("Each evidence card needs a source and content.");
     if (!Number.isFinite(reliability) || reliability < 0 || reliability > 1) throw new Error("Evidence reliability must be between 0 and 1.");
     return { source, content, stance: card.querySelector(".evidence-stance").value, reliability };
   });
-  const response = await api("/api/audit", { branch, expected_head: idOf(workspace.head), claim, evidence });
+  const response = await api("/api/audit", { branch, expected_head: idOf(workspace.head), claim, evidence, threshold, require_sources });
   renderAudit(response.result);
   await refresh();
 }));

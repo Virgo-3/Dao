@@ -1,7 +1,5 @@
 # Dao
 
-**A conversation with room to change your mind.**
-
 Dao is a local conversational workspace that keeps your conversation and its semantic structure together: decisions, reasons, possibilities, assumptions, and the passages they came from. Follow a thought, explore another direction, and return to the reasoning behind an earlier choice.
 
 Talk naturally in the browser workspace or the streaming terminal. Both use the same saved history. A tentative idea stays tentative, a decision can keep its reasons attached, and a correction preserves the earlier context.

@@ -20,24 +20,23 @@
       </filter>
     </defs>
   </svg>
-  <div id="app-shell" class="app-shell tools-open">
+  <div id="app-shell" class="app-shell">
     <header class="app-header">
       <a class="brand" href="/" aria-label="Dao home"><img class="dao-mark" src="/static/dao.svg" alt="" aria-hidden="true"><span>Dao</span></a>
       <div class="header-actions">
         <span id="provider-badge" class="badge"><span class="status-dot"></span>Connecting</span>
-        <button id="verify-button" class="quiet-button" title="Check saved revisions for inconsistencies" aria-label="Verify revisions">Verify</button>
-        <button id="export-button" class="quiet-button" aria-label="Export workspace" disabled>Export</button>
-        <button id="tools-toggle" class="secondary-button tools-toggle" aria-controls="workspace-tools" aria-expanded="true">Hide tools</button>
+        <button id="history-toggle" class="quiet-button" title="View conversation history and branches" aria-controls="workspace-history" aria-expanded="false">History</button>
+        <button id="tools-toggle" class="secondary-button tools-toggle" aria-controls="workspace-tools" aria-expanded="false">Details</button>
       </div>
     </header>
     <div id="global-alert" class="global-alert" role="alert" hidden><span id="alert-message"></span><button id="alert-close" class="icon-button" aria-label="Dismiss error">×</button></div>
 
-    <aside class="sidebar" aria-label="Branches">
+    <aside id="workspace-history" class="sidebar" aria-label="Conversation history and branches" hidden>
       <label class="field-label" for="branch-select">Current branch</label>
       <div class="select-wrap"><select id="branch-select" aria-label="Current branch" disabled><option>Loading…</option></select><span aria-hidden="true">⌄</span></div>
       <div class="branch-creator"><input id="branch-name" maxlength="64" placeholder="Name your branch" aria-label="New branch name" data-mutation><button id="create-branch" class="secondary-button" title="Create a branch from this revision" data-mutation>New branch</button></div>
 
-      <details id="history-details" class="history-section" open>
+      <details id="history-details" class="history-section">
         <summary class="sidebar-section-title">Revisions <span id="history-count" class="count">0</span></summary>
         <ol id="history-list" class="history-list"><li class="muted loading-copy">Loading revisions…</li></ol>
       </details>
@@ -47,14 +46,15 @@
       <h1 class="sr-only">Workspace</h1>
       <p id="provider-description" class="mode-note">Connecting…</p>
       <div id="messages" class="messages" aria-label="Conversation" aria-live="polite" aria-relevant="additions">
-        <section class="empty-state"><img class="empty-emblem" src="/static/dao.svg" alt="" aria-hidden="true"><h2>Room to think.</h2><p>Ask a question or explore a decision.</p></section>
+        <section class="empty-state"><img class="empty-emblem" src="/static/dao.svg" alt="" aria-hidden="true"><h2>Room to think.</h2><p>Think aloud. Dao can remember decisions, revisit assumptions, and explore alternatives with you.</p></section>
       </div>
-      <div id="starter-prompts" class="starter-prompts"><button class="prompt-chip" data-prompt="Help me think through a decision and identify what remains uncertain." data-mutation><span>◷</span> Explore a decision</button><button class="prompt-chip" data-prompt="Help me design a reversible first step before committing to a plan." data-mutation><span>⑂</span> Find a first step</button></div>
-      <form id="chat-form" class="composer"><label class="sr-only" for="message-input">Your message</label><textarea id="message-input" rows="2" maxlength="8192" placeholder="What would you like to explore?" data-mutation></textarea><div class="composer-bottom"><button id="send-button" class="send-button" type="submit" aria-label="Send message" data-mutation><span id="send-label">Send</span><span aria-hidden="true">↑</span></button></div></form>
+      <div id="starter-prompts" class="starter-prompts"><button class="prompt-chip" data-prompt="We chose [a direction] because [our reasoning]." data-mutation><span>◷</span> Remember a decision</button><button class="prompt-chip" data-prompt="Let's explore another direction" data-mutation><span>⑂</span> Explore another direction</button><button class="prompt-chip" data-prompt="Why did we decide that?" data-mutation><span>↶</span> Recall our reasoning</button></div>
+      <form id="chat-form" class="composer"><label class="sr-only" for="message-input">Your message</label><textarea id="message-input" rows="2" maxlength="8192" placeholder="Think aloud, ask why, or explore another direction…" data-mutation></textarea><div class="composer-bottom"><button id="send-button" class="send-button" type="submit" aria-label="Send message" data-mutation><span id="send-label">Send</span><span aria-hidden="true">↑</span></button></div></form>
       <footer class="conversation-footer"><span id="revision-label">Revision history is saved</span><span>Enter to send · Shift + Enter for a new line</span></footer>
     </main>
 
-    <aside id="workspace-tools" class="inspector" aria-label="Workspace tools">
+    <aside id="workspace-tools" class="inspector" aria-label="Conversation details and advanced tools" hidden>
+      <div class="details-actions"><button id="verify-button" class="quiet-button" title="Check saved revisions for inconsistencies" aria-label="Verify revisions">Verify history</button><button id="export-button" class="quiet-button" aria-label="Export workspace" disabled>Export conversation</button></div>
       <div class="tabs" role="tablist" aria-label="Workspace tools"><button id="decision-tab" role="tab" aria-controls="decision-panel" aria-selected="true" tabindex="0" data-panel="decision-panel">Decision</button><button id="relationships-tab" role="tab" aria-controls="relationships-panel" aria-selected="false" tabindex="-1" data-panel="relationships-panel">Relationships</button><button id="audit-tab" role="tab" aria-controls="audit-panel" aria-selected="false" tabindex="-1" data-panel="audit-panel">Audit</button><button id="ledger-tab" role="tab" aria-controls="ledger-panel" aria-selected="false" tabindex="-1" data-panel="ledger-panel">Usage</button></div>
       <section id="decision-panel" role="tabpanel" aria-labelledby="decision-tab" class="tool-panel">
         <div class="tool-intro"><p>Compare actions using your own assumptions.</p></div>
@@ -82,8 +82,9 @@
         </details>
         <p id="structure-status" class="field-help" role="status"></p>
         <details class="relationship-details"><summary>Accepted structure and source passages</summary><div id="accepted-structure"></div></details>
-        <div id="relationship-summary" class="relationship-summary" aria-live="polite"></div>
+        <details class="relationship-details"><summary>Relationship diagnostics</summary><div id="relationship-summary" class="relationship-summary" aria-live="polite"></div>
         <p class="field-help">Read coherence and coverage together.</p>
+        </details>
         <div class="section-label"><span>Unresolved conflicts</span><span id="conflict-count" class="count">0</span></div>
         <div id="relationship-conflicts" class="event-list"></div>
         <details class="relationship-details"><summary>Inspect relationships and estimates</summary><div id="relationship-details"></div></details>

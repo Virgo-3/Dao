@@ -56,6 +56,10 @@ def _name(name: str) -> str:
     return name
 
 
+def validate_branch_name(name: str) -> str:
+    return _name(name)
+
+
 def _text(value: str, name: str, limit: int = 1000) -> str:
     if (not isinstance(value, str) or not value or len(value) > limit
             or any(ord(char) < 32 for char in value)):
@@ -256,6 +260,46 @@ class Store:
         state = json.loads(_json(state))
         with self._transaction() as conn:
             return self._advance(conn, branch, state, kind, label, expected_head)
+
+    def commit_turn(self, branch: str, state: dict, expected_head: str, *,
+                    new_branch: str | None = None, switch_to: str | None = None,
+                    target_state: dict | None = None, target_expected: str | None = None) -> dict:
+        """Finish a conversation and its optional navigation in one transaction.
+
+        Switching appends only the control turn to the destination's own state.
+        A concurrent destination write or name collision rolls back every write.
+        """
+        _name(branch)
+        if new_branch is not None and switch_to is not None:
+            raise ValueError("A turn can create or switch a branch, not both")
+        if not isinstance(state, dict):
+            raise ValueError("State must be a JSON object")
+        state = json.loads(_json(state))
+        if new_branch is not None:
+            _name(new_branch)
+        if switch_to is not None:
+            _name(switch_to)
+            if switch_to == branch or not isinstance(target_state, dict) or not target_expected:
+                raise ValueError("Switching requires another branch and its current state and head")
+            target_state = json.loads(_json(target_state))
+        elif target_state is not None or target_expected is not None:
+            raise ValueError("A target state requires a destination branch")
+        with self._transaction() as conn:
+            if new_branch is not None and conn.execute("SELECT 1 FROM branches WHERE name=?", (new_branch,)).fetchone():
+                raise ConflictError(f"Branch already exists: {new_branch}")
+            if switch_to is not None and self._head_id(conn, switch_to) != target_expected:
+                raise ConflictError(f"Branch {switch_to} changed; reload before retrying")
+            saved = self._advance(conn, branch, state, "assistant", "Dao replied", expected_head)
+            head, destination = saved, branch
+            if new_branch is not None:
+                created = {"name": new_branch, "head": saved["id"], "created_at": _now()}
+                conn.execute("INSERT INTO branches VALUES (?, ?, ?)", (new_branch, saved["id"], created["created_at"]))
+                self._event(conn, new_branch, "branch.created", created)
+                destination = new_branch
+            elif switch_to is not None:
+                head = self._advance(conn, switch_to, target_state, "assistant", "Conversation continued", target_expected)
+                destination = switch_to
+            return {"head": head, "source_head": saved, "branch": destination}
 
     def history(self, branch: str = "main") -> list[dict]:
         _name(branch)

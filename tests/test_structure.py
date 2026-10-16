@@ -15,7 +15,7 @@ class StructureTests(unittest.TestCase):
     def setUp(self):
         self.store = Store(":memory:")
         self.app = Dao(self.store, Config())
-        self.chat("We chose SQLite because this must work offline. 道😀 Concurrent writers may change that choice.")
+        self.chat("A sample passage about SQLite: this must work offline. 道😀 Concurrent writers may change that choice.")
         self.citation = self.quote("must work offline")
 
     def tearDown(self):
@@ -194,7 +194,7 @@ class StructureTests(unittest.TestCase):
     def test_model_proposal_waits_for_explicit_review(self):
         self.app = Dao(self.store, Config(provider="openai", api_key="test-only"))
 
-        def stream(state, config, evaluate, propose):
+        def stream(state, config, evaluate, propose, remember=None):
             proposal = propose({"rationale": "Grounded requirement", "operations": [self.node()]})
             yield {"type": "proposal", "name": "propose_structure", "result": proposal}
             yield {"type": "delta", "text": "The proposed requirement is ready for your review."}
@@ -211,7 +211,7 @@ class StructureTests(unittest.TestCase):
         original = self.proposal()
         self.app = Dao(self.store, Config(provider="openai", api_key="test-only"))
 
-        def stream(state, config, evaluate, propose):
+        def stream(state, config, evaluate, propose, remember=None):
             proposal = propose({"rationale": "Another requirement", "operations": [self.node("other")]})
             yield {"type": "proposal", "name": "propose_structure", "result": proposal}
             raise ProviderError("Interrupted after proposing")

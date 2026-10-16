@@ -136,7 +136,7 @@ class Terminal:
     artifact_noun = "Artifact"
     memory_empty = "No saved memory at this revision."
     conflicts_empty = "No unresolved relationship conflicts at this revision."
-    introduction = "Type /help for commands."
+    introduction = "Think aloud, ask why, or explore another direction. /help shows advanced commands."
     help_text = HELP
 
     def _tool_label(self, name):
@@ -226,6 +226,8 @@ class Terminal:
         speaking = False
         original_handlers = {}
         announced_stop = False
+        activities = []
+        proposals = []
 
         def request_stop(_signum, _frame):
             self._stop_requested = True
@@ -255,11 +257,9 @@ class Terminal:
                     self._json(event["result"])
                     speaking = False
                 elif kind == "proposal":
-                    self._emit(display.feed("", final=True))
-                    display = _Display(self._secret)
-                    self._write("\nStructure proposal pending review. Use /proposals and /accept ID or /reject ID.\n")
-                    self._json(event["result"])
-                    speaking = False
+                    proposals.append(event["result"])
+                elif kind == "activity":
+                    activities.append(event["result"])
                 elif kind in {"done", "error"}:
                     self.head = event["head"]
                     self._emit(display.feed("", final=True))
@@ -269,6 +269,15 @@ class Terminal:
                         speaking = False
                     if kind == "error":
                         self._write("Error: " + str(event["error"]) + "\n")
+                    else:
+                        self.branch = event.get("branch") or self.branch
+                        for activity in activities:
+                            label = activity.get("label") or str(activity.get("kind", "Conversation updated")).replace("_", " ").capitalize()
+                            self._write("  · " + label + "\n")
+                        if proposals:
+                            self._write("  · Structure proposal pending review. Say 'Keep that' to remember it, or /proposals for details.\n")
+                    activities.clear()
+                    proposals.clear()
             self._emit(display.feed("", final=True))
             if speaking:
                 self._write("\n")

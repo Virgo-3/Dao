@@ -1,6 +1,6 @@
 """The runtime owns state transitions, tools, and accounting, not the model."""
 
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from copy import deepcopy
 import hashlib
 import json
@@ -9,10 +9,11 @@ import uuid
 
 from .audit import adjudicate
 from .decision import demo_payload, evaluate
+from .conversation import capture as remember_conversation, prepare as prepare_conversation
 from .provider import ProviderError, demo_stream, openai_stream, reservation
 from .relationships import (apply as apply_relationships, blocking_conflicts,
                             digest as relationship_digest, resolution_claim, summarize)
-from .store import ConflictError
+from .store import ConflictError, validate_branch_name
 from .structure import (citations_for, dependency_index, grounded_operation,
                         identify_messages, message_records, propose, review)
 
@@ -41,6 +42,39 @@ class Dao:
         return "Decision example: " + result["reason"] + "\n\nInspect the Decision panel for the inputs and utility calculation."
 
     message_records = staticmethod(message_records)
+
+    def plan_navigation(self, navigation, branch, source_citations, scope):
+        """Resolve a direct conversational navigation request before confirming it."""
+        names = {item["name"] for item in self.store.branches()}
+        kind, name = navigation["kind"], navigation.get("name")
+        if kind == "branch":
+            if name is None:
+                name, number = "alternative", 2
+                while name in names:
+                    name, number = f"alternative-{number}", number + 1
+            validate_branch_name(name)
+            if name in names:
+                return None, f"There is already an alternative named {name}. Say ‘Switch to {name}’ to continue there.", None
+            plan = {"new_branch": name}
+            reply = f"Let's explore another direction in {name}. Your earlier thinking is still available in {branch}."
+            label = "Alternative explored"
+        elif kind == "switch":
+            validate_branch_name(name)
+            if name not in names:
+                return None, f"I couldn't find {name}. Available conversations: {', '.join(sorted(names))}.", None
+            if name == branch:
+                return None, f"We're already in {name}. We can continue here.", None
+            scope.enter_context(self.branch_lock(name))
+            target = self.store.head(name)
+            plan = {"switch_to": name, "target": target}
+            reply = f"Back in {name}. We can continue from where we left off."
+            label = "Conversation switched"
+        else:
+            raise ValueError("Unknown conversation navigation")
+        activity = {"id": uuid.uuid4().hex, "kind": "alternative" if kind == "branch" else "switched",
+                    "label": label, "summary": reply, "branch": name, "node_ids": [],
+                    "citations": deepcopy(source_citations)}
+        return plan, reply, activity
 
     def decision_record(self, state, problem, result, *, citations=None, dependency_ids=None):
         dependencies = [] if dependency_ids is None else dependency_ids
@@ -203,7 +237,7 @@ class Dao:
         literal = data.get("literal", False)
         if type(literal) is not bool:
             raise ValueError("literal must be a boolean")
-        with self.branch_lock(branch):
+        with self.branch_lock(branch), ExitStack() as navigation_scope:
             head = self.checked_head(branch, data.get("expected_head"))
             state = deepcopy(head["state"])
             identify_messages(state)
@@ -212,11 +246,13 @@ class Dao:
             source_citations = [{"message_id": source_message["id"], "start": 0,
                                  "end": len(message), "quote": message}]
             original_proposals = deepcopy(state.get("proposals"))
-            # Validate context before writing a user turn or reserving a model request.
-            reserve = reservation(state, self.config)
+            original_graph = deepcopy(state.get("relationships"))
+            # Local conversation operations need no provider context or token budget.
+            reserve = 0
             current = self.store.commit(branch, state, "user", " ".join(message.split())[:72], head["id"])
             yield {"type": "start", "head": current}
             chunks, active_id, charged = [], None, False
+            activities, navigation, assistant = [], None, None
             output_characters = 0
             try:
                 if not literal and message.startswith("/remember "):
@@ -234,12 +270,34 @@ class Dao:
                     state["decisions"].append(self.decision_record(state, problem, result, citations=source_citations))
                     stream = iter([{"type": "delta", "text": self.decision_message(result)}])
                 else:
-                    active_id = uuid.uuid4().hex
-                    self.store.reserve_usage(branch, active_id, reserve, self.config.token_budget)
-                    self.store.append_event(branch, "model_attempt", {"request_id": active_id, "provider": self.config.provider})
-                    stream = (self.demo_response(state) if self.config.provider == "demo" else
-                              openai_stream(state, self.config, lambda problem: self.evaluate_problem(state, problem),
-                                            lambda payload: propose(state, payload, source="model")))
+                    try:
+                        prepared_state = deepcopy(state)
+                        prepared = ({"reply": None, "activities": [], "navigation": None} if literal
+                                    else prepare_conversation(prepared_state))
+                    except (ValueError, ConflictError) as exc:
+                        prepared = {"reply": f"I couldn't save that change: {exc}. Your message is still saved.",
+                                    "activities": [], "navigation": None}
+                    else:
+                        state = prepared_state
+                    activities.extend(prepared["activities"])
+                    reply = prepared["reply"]
+                    if prepared["navigation"]:
+                        navigation, reply, activity = self.plan_navigation(prepared["navigation"], branch,
+                                                                         source_citations, navigation_scope)
+                        if activity is not None:
+                            activities.append(activity)
+                    state["_turn_activities"] = activities
+                    if reply is not None:
+                        stream = iter([{"type": "delta", "text": reply}])
+                    else:
+                        reserve = reservation(state, self.config)
+                        active_id = uuid.uuid4().hex
+                        self.store.reserve_usage(branch, active_id, reserve, self.config.token_budget)
+                        self.store.append_event(branch, "model_attempt", {"request_id": active_id, "provider": self.config.provider})
+                        stream = (self.demo_response(state) if self.config.provider == "demo" else
+                                  openai_stream(state, self.config, lambda problem: self.evaluate_problem(state, problem),
+                                                lambda payload: propose(state, payload, source="model"),
+                                                None if literal else lambda payload: remember_conversation(state, payload)))
                 for event in stream:
                     if event["type"] == "delta":
                         delta = event["text"]
@@ -271,15 +329,34 @@ class Dao:
                         self.store.append_event(branch, "structure_proposed", {"proposal_id": event["result"]["id"],
                                                 "status": "pending", "request_id": active_id})
                         yield event
+                    elif event["type"] == "activity":
+                        activities.append(event["result"])
                     elif event["type"] == "tool_error":
                         self.store.append_event(branch, "tool_rejected", {"name": event["name"], "error": event["error"]})
                         yield {"type": "tool", "name": event["name"], "result": {"error": event["error"]}}
                 answer = "".join(chunks)
                 if not answer:
                     raise ProviderError("Model completed without a conversational reply")
-                state["messages"].append({"id": uuid.uuid4().hex, "role": "assistant", "content": answer, "status": "completed"})
-                saved = self.store.commit(branch, state, "assistant", "Dao replied", current["id"])
-                yield {"type": "done", "head": saved, "usage": self.store.usage()}
+                assistant = {"id": uuid.uuid4().hex, "role": "assistant", "content": answer, "status": "completed"}
+                if activities:
+                    assistant["activities"] = activities
+                state["messages"].append(assistant)
+                state.pop("_turn_activities", None)
+                finish = {}
+                if navigation:
+                    if "new_branch" in navigation:
+                        finish["new_branch"] = navigation["new_branch"]
+                    else:
+                        target = navigation["target"]
+                        target_state = deepcopy(target["state"])
+                        identify_messages(target_state)
+                        target_state["messages"].extend([deepcopy(source_message), deepcopy(assistant)])
+                        finish = {"switch_to": navigation["switch_to"], "target_state": target_state,
+                                  "target_expected": target["id"]}
+                saved = self.store.commit_turn(branch, state, current["id"], **finish)
+                for activity in activities:
+                    yield {"type": "activity", "result": activity}
+                yield {"type": "done", "head": saved["head"], "branch": saved["branch"], "usage": self.store.usage()}
             except Exception as exc:
                 if active_id and not charged:
                     # A failed stream can still incur usage; conservatively retain its reservation.
@@ -290,13 +367,25 @@ class Dao:
                     except KeyError:
                         pass  # The next round may have failed admission before reservation existed.
                 partial = "".join(chunks)
+                if assistant is not None and state["messages"][-1].get("id") == assistant["id"]:
+                    state["messages"].pop()
+                state.pop("_turn_activities", None)
+                if original_graph is None:
+                    state.pop("relationships", None)
+                else:
+                    state["relationships"] = original_graph
                 # A failed turn cannot leave a candidate presented as ready for review.
                 if original_proposals is None:
                     state.pop("proposals", None)
                 else:
                     state["proposals"] = original_proposals
                 state["messages"].append({"id": uuid.uuid4().hex, "role": "assistant", "content": partial or "This turn did not complete.", "status": "failed"})
-                saved = self.store.commit(branch, state, "failed", "Turn failed; usage retained", current["id"])
+                try:
+                    saved = self.store.commit(branch, state, "failed", "Turn failed; usage retained", current["id"])
+                except ConflictError:
+                    # Another process owns the newer state. Report it without
+                    # overwriting its work or fabricating a saved failed reply.
+                    saved = self.store.head(branch)
                 self.store.append_event(branch, "turn_failed", {"error_type": type(exc).__name__, "request_id": active_id})
                 # Known errors are useful; unexpected internals stay server-side.
                 safe_error = str(exc) if isinstance(exc, (ValueError, RuntimeError)) else "The turn failed. Inspect the server log."

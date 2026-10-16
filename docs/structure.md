@@ -1,6 +1,8 @@
 # Conversation structure and source passages
 
-Dao can preserve a decision, its requirements and assumptions, supporting analysis, and conditions for reconsideration as graph records linked to conversation. A structure proposal keeps these additions separate from accepted relationships until you review them. The offline demo supports manual proposals; live AI can also propose updates when useful.
+Dao can preserve a decision, its requirements and assumptions, supporting analysis, and conditions for reconsideration as graph records linked to conversation. Routine memory is conversational: “We chose SQLite because this must work offline” saves a decision and reason, while “Maybe Postgres” stays tentative. Start with [talking with Dao](conversation.md); ordinary remembering needs no JSON or review.
+
+This guide covers the underlying records and advanced structure proposals. A proposal keeps its changes separate from accepted relationships until you review them. Manual proposals work offline; live AI can propose changes that need explicit review, such as assessments or policy settings.
 
 ## Cite the conversation
 
@@ -18,10 +20,10 @@ Older messages receive deterministic IDs in detached read views. `/api/state` ex
 
 ## Try the workflow offline
 
-Start `python -m dao --terminal` and send this exact message:
+For a manual example, start `python -m dao --terminal` and use `/say` to send this literal message without automatic local capture:
 
 ```text
-We chose SQLite because this must work offline. Reconsider if concurrent writers become necessary.
+/say We chose SQLite because this must work offline. Reconsider if concurrent writers become necessary.
 /messages
 ```
 
@@ -79,7 +81,7 @@ Then run:
 /proposals
 ```
 
-Inspect the operations and source passages. Run `/accept ID` using the proposal's full returned ID, or `/reject ID`. Staging alone leaves the accepted graph unchanged. In the browser, use **Relationships → Stage a proposal**, paste the same JSON, and review its source links before selecting **Accept** or **Reject**. **Start from latest message** can also fill an editable cited claim from your most recent user message; this manual starter copies your words, so review the meaning and label before staging. Use fresh node and relation IDs if these definitions already exist.
+Inspect the operations and source passages. Run `/accept ID` using the proposal's full returned ID, or `/reject ID`. “Keep that” and “Reject that suggestion” also work when exactly one pending suggestion is available. Staging alone leaves the accepted graph unchanged. In the browser, use **Details → Relationships → Stage a proposal**, paste the same JSON, and review its source links before selecting **Accept** or **Reject**. **Start from latest message** can also fill an editable cited claim from your most recent user message; this manual starter copies your words, so review the meaning and label before staging. Use fresh node and relation IDs if these definitions already exist.
 
 The reconsideration condition is recorded knowledge, not a running monitor. Dao does not detect concurrent writers or revise the choice automatically.
 
@@ -91,15 +93,19 @@ Proposals accept only `rationale` and `operations`. The rationale is nonempty te
 
 Acceptance checks source passages and every operation again, then saves the entire graph update and review status in one revision. It is bound to the graph digest at staging. If relationships changed, reject the stale proposal and stage a fresh one against the current graph; refreshing the checkpoint alone does not update its base digest. Rejection retains the reviewed candidate without changing accepted relationships. Branching and restoring preserve the proposal state at the selected revision. Accepting a graph change requires a fresh artifact audit under the existing graph-bound permission policy.
 
-The live model's `propose_structure` tool can stage candidates only. It cannot accept or reject them, resolve conflicts, or mutate accepted relationships. The adapter shows stable message IDs, accepted structure, and pending proposals to help the model cite sources and avoid duplicates. A failed conversation turn discards proposals created during that turn; earlier proposals and recorded usage remain.
+The live model's `propose_structure` tool can stage candidates only. It cannot accept or reject them, resolve conflicts, or mutate accepted relationships. Its separate `remember_conversation` tool saves routine nodes and relations cited only to the latest user message, without review. Those relations must have `severe: false` and `actions: []`; routine capture cannot assess beliefs, record observations, or change action policy. The adapter shows stable message IDs, accepted structure, recent activity summaries, and pending proposals to help the model cite sources and avoid duplicates.
+
+Completed assistant messages store semantic and navigation `activities`; activity events are emitted after durable turn finalization. A failed conversation turn restores its prior graph and proposal state and retains a labeled failed reply and usage evidence. No successful memory activity is emitted for changes that failed to commit.
 
 ## Meaning and dependencies
 
 Node kinds are `person`, `goal`, `claim`, `action`, `decision`, `assumption`, `requirement`, `condition`, and `analysis`. Relation kinds are `effect`, `support`, `compatibility`, `resource`, `depends_on`, `contradicts`, and `supersedes`. Existing required fields such as node importance and relation weight, severity, and action scope still apply.
 
+Nodes may also contain optional `content` and `stance`. Stance is `mentioned`, `believed`, `considering`, or `decided`; old records without it remain valid. Routine capture preserves the distinction between a mentioned topic, a stated belief, a tentative option, and an affirmative decision. It does not turn quotations, hypotheticals, uncertainty, or negation into settled choices.
+
 For `depends_on`, the **source depends on the target**. If analysis depends on an assumption and a decision depends on that analysis, the assumption's transitive dependents include both. The snapshot's top-level `dependencies` maps each node ID to its sorted transitive dependents; it excludes the node itself even when the graph contains a cycle. It reports declared links without inferring additional real-world relationships or invalidating conclusions automatically.
 
-`supersedes` can preserve a newer conclusion alongside its predecessor. `contradicts` can preserve disagreement. Both are declarations: neither deletes a record, proves truth or inconsistency, changes a belief, or closes a conflict. Definitions remain immutable; use a new ID for a revised definition. Existing assessment and conflict rules continue to apply.
+`supersedes` can preserve a newer conclusion alongside its predecessor. `contradicts` can preserve disagreement. Both are declarations: neither deletes a record, proves truth or inconsistency, changes a belief, or closes a conflict. Conversational recall can prefer a record that has not been explicitly superseded, while the earlier record and source remain saved. An “Actually” correction preserves earlier reasons and highlights related decisions to revisit; it creates a replacement link only when the user's wording explicitly supports one. Definitions remain immutable; use a new ID for a revised definition. Existing assessment and conflict rules continue to apply.
 
 ## HTTP interface
 

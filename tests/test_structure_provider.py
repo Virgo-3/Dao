@@ -180,7 +180,7 @@ class StructureProviderTests(unittest.TestCase):
 
     def test_live_reservation_includes_source_labels_and_pending_context(self):
         config = Config(provider="openai", api_key="test")
-        instructions, messages = build_input(self.state(), include_structure=True)
+        instructions, messages = build_input(self.state(), include_structure=True, include_conversation=True)
         expected = (len(json.dumps(messages, ensure_ascii=False).encode("utf-8"))
                     + len(instructions.encode("utf-8")) + 512 + config.max_output_tokens)
         self.assertEqual(reservation(self.state(), config), expected)

@@ -2,11 +2,11 @@
 
 **A conversation with room to change your mind.**
 
-Dao is a local conversational workspace where you can follow a thought, branch into another possibility, and return to an earlier checkpoint. It saves your conversation and working state together, with tools for comparing decisions, reviewing evidence, and tracking usage. Decisions, assumptions, requirements, and analysis can become structured records linked to the exact conversation passages behind them.
+Dao is a local conversational workspace where you can follow a thought, branch into another possibility, and return to an earlier checkpoint. Talk naturally: Dao can remember a decision and its reason, keep a tentative option tentative, revisit an assumption, and recall the original words behind your thinking.
 
 Use the browser workspace or the streaming terminal. Both work with the same saved history.
 
-**The default is an offline demo.** It produces deterministic replies without an account, API key, or model call. You can try the full state and decision workflow before enabling live AI.
+**The default is an offline demo.** Common memory, recall, and branching phrases work locally without an account, API key, or model call. Open-ended replies are short canned responses; enable live AI for a model-backed conversation.
 
 ![Dao browser workspace](docs/workspace.jpg)
 
@@ -48,27 +48,28 @@ The executable is unsigned; the package includes `SHA256SUMS` for verification. 
 
 ## Try another direction
 
-Start the terminal, type a message, then try:
+Send these messages in the browser or terminal, one at a time:
 
 ```text
-/remember plan=Compare options before committing
-/branch experiment
-/remember plan=Try a small pilot
-/decide
-/switch main
-/memory
+We chose SQLite because this must work offline.
+Maybe Postgres.
+Actually, multiple people need to write at once.
+Why did we decide that?
+Let's explore another direction
+Go back to main
 ```
 
-The `experiment` branch keeps the pilot plan and its decision result. Back on `main`, `/memory` shows the original plan. Each branch carries its own messages, memory, decisions, relationships, audits, and saved content.
+Dao records SQLite as the decision and offline operation as its reason. Postgres remains an option under consideration. The new assumption preserves the earlier reasoning and marks the related decision for reconsideration. Recall returns the saved reason. Exploring another direction creates an `alternative` branch, or a numbered alternative if that name exists; going back to `main` returns to its own saved context.
 
 Use `/history` to inspect saved revisions and `/restore ID_PREFIX` to restore a reachable checkpoint as a new revision. Earlier history and recorded usage remain available. `/help` lists commands; `/quit` exits.
 
-In the browser, use the branch sidebar and the **Decision**, **Relationships**, **Audit**, and **Usage** tabs. The header provides export and integrity checks. See the [terminal guide](docs/terminal.md) for commands and JSON imports.
+The browser opens on the conversation. **History** reveals branches and revisions; **Details** reveals source passages and advanced **Decision**, **Relationships**, **Audit**, and **Usage** tools. Editors and relationship diagnostics stay collapsed until needed. Routine remembering needs no JSON or proposal review. See [talking with Dao](docs/conversation.md) for phrases and boundaries, or the [terminal guide](docs/terminal.md) for optional commands.
 
 ## What you can work with
 
 | Tool | What it does |
 | --- | --- |
+| **Conversation memory** | Keep decisions, reasons, options, and assumptions with their exact source passages; recall them in conversation. |
 | **History and branches** | Save checkpoints, explore alternatives independently, and restore earlier state. |
 | **Decisions** | Compare acting, waiting for more information, and abstaining using explicit scenarios, probabilities, payoffs, costs, and reversibility. |
 | **Relationships** | Record directed relationships, assessed beliefs, and reported observations. Inspect coverage and unresolved conflicts. |
@@ -80,7 +81,7 @@ The decision model can value waiting when an observation could change the best c
 
 Unresolved severe relationship conflicts exclude their declared actions from decision calculations. Resolving a conflict requires a current evidence review; changing a belief alone leaves it open. The [relationship guide](docs/relationships.md) explains the workflow.
 
-In **Relationships**, stage a JSON structure proposal or review a live model's proposal, inspect its source passages, then accept or reject it. The terminal provides `/messages`, `/propose PATH`, `/proposals`, `/accept ID`, and `/reject ID`. Manual proposals work in the offline demo. See the [conversation structure guide](docs/structure.md) for an example and dependency semantics.
+Advanced structure proposals support changes that need explicit review, including relationship assessments and policy settings. In **Details → Relationships**, inspect a proposal's source passages before accepting or rejecting it. “Keep that” or “Reject that suggestion” can review a single unambiguous pending suggestion. The [structure guide](docs/structure.md) documents optional JSON imports and dependency semantics.
 
 ## Enable live AI
 
@@ -104,7 +105,7 @@ python -m dao --terminal
 
 For the Windows package, replace the final command with `.\Dao.exe`. Use `DAO_MODEL` to select a Responses API model available to your account.
 
-Live AI sends the current conversation, saved memory, accepted relationship context, and pending structure proposals to OpenAI. The API key is used for authentication and excluded from saved state, exports, and browser configuration. The model can request read-only decision evaluation and stage structure proposals for your review. Accepting or rejecting proposals remains an operator action; the model has no shell or external-action tools.
+Live AI sends the current conversation, saved memory, accepted relationship context, recent activity summaries, and pending structure proposals to OpenAI. The API key is used for authentication and excluded from saved state, exports, and browser configuration. The model can remember low-impact context cited to your latest message, request read-only decision evaluation, and stage advanced proposals for your review. It cannot accept proposals, resolve conflicts, change action policy through routine memory, or perform external actions. Common local phrases continue to work without a provider request.
 
 | Setting | Purpose |
 | --- | --- |
@@ -129,6 +130,7 @@ Dao runs as a single-user local application, bound to `127.0.0.1`. Restoring a c
 ## Documentation
 
 - [Project guide](docs/overview.md) — concepts, workflows, configuration, and limits
+- [Talking with Dao](docs/conversation.md) — natural memory, recall, corrections, and alternatives
 - [Terminal guide](docs/terminal.md) — commands and JSON imports
 - [Windows guide](docs/windows.md) — downloads, verification, and packaging
 - [Relationships](docs/relationships.md) — beliefs, observations, conflicts, and resolution

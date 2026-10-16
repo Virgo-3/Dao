@@ -132,6 +132,36 @@ function daoIcon(className = "") {
   return icon;
 }
 
+function stanceLabel(record) {
+  return record.stance ? `${titleCase(record.stance)} · ${titleCase(record.kind || "thought")}` : titleCase(record.kind || "thought");
+}
+
+function appendActivities(container, activities) {
+  if (!Array.isArray(activities) || !activities.length) return;
+  const notes = node("div", "message-activities");
+  notes.setAttribute("aria-label", "What Dao remembered or recalled");
+  activities.forEach((activity) => {
+    const note = node("details", "message-activity");
+    note.append(node("summary", "", activity.label || titleCase(activity.kind || "Conversation updated")));
+    if (activity.summary) note.append(node("p", "activity-summary", activity.summary));
+    const records = versionedState().relationships?.nodes || {};
+    const items = (activity.node_ids || []).map((id) => records[id]).filter(Boolean);
+    if (items.length) {
+      const list = node("ul", "activity-thoughts");
+      items.forEach((record) => {
+        const item = node("li");
+        item.append(node("span", "", record.label || record.id), node("span", "stance-label", stanceLabel(record)));
+        list.append(item);
+      });
+      note.append(list);
+    }
+    appendCitations(note, activity);
+    addJsonDetails(note, activity, "Advanced details");
+    notes.append(note);
+  });
+  container.append(notes);
+}
+
 function renderMessage(message, streaming = false) {
   const role = message.role === "user" ? "user" : message.role === "assistant" ? "assistant" : "system";
   const item = node("article", `message ${role}${streaming ? " streaming" : ""}`);
@@ -146,9 +176,10 @@ function renderMessage(message, streaming = false) {
   body.append(node("div", "message-label", role === "assistant" ? "Dao" : titleCase(role)));
   const content = node("div", "message-content", message.content || "");
   body.append(content);
+  if (role === "assistant" && !streaming && !["failed", "interrupted"].includes(message.status)) appendActivities(body, message.activities);
   if (message.id) {
     const source = node("details", "message-source");
-    source.append(node("summary", "", `Source details · ${message.id}`));
+    source.append(node("summary", "", "Details"), node("p", "field-help", `Message source · ${message.id}`));
     const citation = messageCitation(message);
     if (!citation) {
       source.append(node("p", "field-help", "This message has no citable passage because its turn failed or its content is empty or contains only unsupported controls."));
@@ -190,7 +221,7 @@ function renderConversation() {
     const emblem = daoIcon("empty-emblem");
     const heading = node("h2");
     heading.textContent = "Room to think.";
-    const copy = node("p", "", "Ask a question or explore a decision.");
+    const copy = node("p", "", "Think aloud. Dao can remember decisions, revisit assumptions, and explore alternatives with you.");
     empty.append(emblem, heading, copy);
     $("messages").append(empty);
   } else {
@@ -208,7 +239,7 @@ function renderBranches() {
     option.selected = item.name === branch;
     $("branch-select").append(option);
   });
-  $("revision-label").textContent = idOf(workspace?.head) ? `Revision ${idOf(workspace.head).slice(0, 8)}` : "Revision history is saved";
+  $("revision-label").textContent = branch === "main" ? "Main conversation · saved" : `Exploring ${branch} · saved`;
 }
 
 function renderHistory() {
@@ -471,7 +502,7 @@ function renderStructure() {
   if (!Object.keys(nodes).length && !Object.keys(relations).length) accepted.append(node("p", "empty-copy", "No accepted structure at this revision."));
   Object.entries(nodes).forEach(([id, record]) => {
     const card = node("article", "accepted-record");
-    card.append(node("strong", "", record.label || id), node("p", "field-help", `${titleCase(record.kind || "node")} · ${id}`));
+    card.append(node("strong", "", record.label || id), node("p", "stance-label", stanceLabel(record)));
     if (record.content) card.append(node("p", "proposal-rationale", record.content));
     appendCitations(card, record);
     const dependsOn = Object.values(relations).filter((relation) => relation.kind === "depends_on" && relation.source === id).map((relation) => relation.target);
@@ -660,6 +691,7 @@ async function submitChat() {
     $("message-input").value = "";
     scrollMessages();
     let complete = false;
+    let completedBranch = branch;
     let proposalCount = 0;
     let receivedText = "";
     try {
@@ -683,9 +715,11 @@ async function submitChat() {
           scrollMessages();
         } else if (event.type === "done") {
           complete = true;
+          completedBranch = event.branch || branch;
+        } else if (event.type === "activity") {
+          // Persisted assistant messages render activity notes after completion.
         } else if (event.type === "proposal") {
           proposalCount += 1;
-          $("structure-status").textContent = "Dao proposed structured knowledge. Review the pending proposal in Relationships.";
         } else if (event.type === "error") {
           throw new Error(event.error || "The conversation stopped before completion.");
         }
@@ -709,13 +743,16 @@ async function submitChat() {
       }
       if (!complete) throw new Error("The stream ended before completion. Your saved state will be reloaded.");
       assistant.item.classList.remove("streaming");
-      await refresh();
-      if (proposalCount) notify(`${proposalCount === 1 ? "A structure proposal is" : `${proposalCount} structure proposals are`} pending review in Relationships.`);
+      await refresh(completedBranch);
+      if (proposalCount) {
+        $("structure-status").textContent = "Dao has a knowledge suggestion. Say “Keep that” to remember it, or review it here.";
+        notify("Dao has a knowledge suggestion. Say “Keep that” to remember it, or open Details to review it.");
+      }
     } catch (error) {
       assistant.item.classList.remove("streaming");
       if (!receivedText) $("message-input").value = message;
-      try { await refresh(); } catch { /* Keep the original failure visible. */ }
-      $("structure-status").textContent = "The conversation failed. New proposals from this turn were discarded; saved proposals are shown above.";
+      try { await refresh(complete ? completedBranch : branch); } catch { /* Keep the original failure visible. */ }
+      $("structure-status").textContent = complete ? "The reply was saved, but its details could not be reloaded. Refresh to see the latest conversation." : "The conversation failed. New proposals from this turn were discarded; saved proposals are shown above.";
       throw error;
     }
   });
@@ -738,7 +775,7 @@ function setToolsOpen(open) {
   $("app-shell").classList.toggle("tools-open", open);
   $("workspace-tools").hidden = !open;
   $("tools-toggle").setAttribute("aria-expanded", String(open));
-  const label = open ? wideLayout.matches ? "Hide tools" : "Back to conversation" : "Tools";
+  const label = open ? wideLayout.matches ? "Hide details" : "Back to conversation" : "Details";
   $("tools-toggle").setAttribute("aria-label", label);
   if (open && !wideLayout.matches) {
     const shortLabel = node("span", "utility-short", "← Chat");
@@ -748,7 +785,15 @@ function setToolsOpen(open) {
   if (!open && focusedInTools) $("tools-toggle").focus();
 }
 
+function setHistoryOpen(open) {
+  $("app-shell").classList.toggle("history-open", open);
+  $("workspace-history").hidden = !open;
+  $("history-toggle").setAttribute("aria-expanded", String(open));
+  $("history-toggle").textContent = open ? "Hide history" : "History";
+}
+
 $("tools-toggle").addEventListener("click", () => setToolsOpen($("workspace-tools").hidden));
+$("history-toggle").addEventListener("click", () => setHistoryOpen($("workspace-history").hidden));
 $("alert-close").addEventListener("click", () => {
   clearError();
   if (errorFocus?.isConnected && errorFocus.getClientRects().length) errorFocus.focus();
@@ -759,8 +804,9 @@ document.addEventListener("keydown", (event) => {
     $("tools-toggle").focus();
   }
 });
-wideLayout.addEventListener("change", () => setToolsOpen(wideLayout.matches));
-setToolsOpen(wideLayout.matches);
+wideLayout.addEventListener("change", () => setToolsOpen(!$("workspace-tools").hidden));
+setToolsOpen(false);
+setHistoryOpen(false);
 if (!wideLayout.matches) $("history-details").open = false;
 
 function selectTab(tab) {

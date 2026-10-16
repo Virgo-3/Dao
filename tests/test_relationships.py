@@ -166,6 +166,20 @@ class RelationshipTests(unittest.TestCase):
             with self.subTest(content=str(content)[:20]), self.assertRaises(ValueError):
                 apply(empty_graph(), {"operation": "node", "node": {**node("new"), "content": content}})
 
+    def test_optional_node_stance_preserves_legacy_shape_and_validates_choices(self):
+        graph, _ = apply(empty_graph(), {"operation": "node", "node": node("legacy")})
+        self.assertNotIn("stance", graph["nodes"]["legacy"])
+        for stance in ("mentioned", "believed", "considering", "decided"):
+            graph, _ = apply(graph, {"operation": "node", "node": {**node(stance), "stance": stance}})
+            self.assertEqual(graph["nodes"][stance]["stance"], stance)
+        for stance in (None, True, "certain", [], 1):
+            with self.subTest(stance=stance), self.assertRaises(ValueError):
+                apply(graph, {"operation": "node", "node": {**node("invalid"), "stance": stance}})
+        changed = copy.deepcopy(graph)
+        changed["nodes"]["legacy"]["stance"] = "wrong"
+        with self.assertRaises(ValueError):
+            digest(changed)
+
     def test_rejects_malformed_citations_without_mutation(self):
         graph = fixture()
         before = copy.deepcopy(graph)

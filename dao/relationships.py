@@ -134,13 +134,15 @@ def normalize_citations(value: Any) -> list[dict[str, Any]]:
 
 def _node(value: Any, *, stored: bool = False) -> dict[str, Any]:
     required = {"id", "label", "kind", "importance"} | ({"created_at"} if stored else set())
-    value = _object(value, "node", required | {"content", "citations"}, required)
+    value = _object(value, "node", required | {"content", "citations", "stance"}, required)
     result = {"id": _identifier(value["id"], "node.id"), "label": _text(value["label"], "node.label", 256),
               "kind": _choice(value["kind"], "node.kind", {"person", "goal", "claim", "action", "decision",
                                                                "assumption", "requirement", "condition", "analysis"}),
               "importance": _number(value["importance"], "node.importance")}
     if "content" in value:
         result["content"] = _text(value["content"], "node.content", 4000, multiline=True)
+    if "stance" in value:
+        result["stance"] = _choice(value["stance"], "node.stance", {"mentioned", "believed", "considering", "decided"})
     if "citations" in value:
         result["citations"] = normalize_citations(value["citations"])
     if stored:

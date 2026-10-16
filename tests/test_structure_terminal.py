@@ -137,7 +137,8 @@ class StructureTerminalTests(unittest.TestCase):
             code, output, _ = self.run_terminal(io.StringIO("Propose structure\n/quit\n"))
         self.assertEqual(code, 0)
         self.assertIn("Structure proposal pending review", output)
-        self.assertIn('"id": "proposal-1"', output)
+        self.assertIn("Keep that", output)
+        self.assertNotIn('"id": "proposal-1"', output)
         self.assertNotIn("accepted at", output)
 
 

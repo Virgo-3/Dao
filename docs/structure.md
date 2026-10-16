@@ -81,7 +81,7 @@ Then run:
 /proposals
 ```
 
-Inspect the operations and source passages. Run `/accept ID` using the proposal's full returned ID, or `/reject ID`. “Keep that” and “Reject that suggestion” also work when exactly one pending suggestion is available. Staging alone leaves the accepted graph unchanged. In the browser, use **Context & tools → Structure → Stage a proposal**, paste the same JSON, and review its source links before selecting **Accept** or **Reject**. **Start from latest message** can also fill an editable cited claim from your most recent user message; this manual starter copies your words, so review the meaning and label before staging. Use fresh node and relation IDs if these definitions already exist.
+Inspect the operations and source passages. Run `/accept ID` using the proposal's full returned ID, or `/reject ID`. “Keep that” and “Reject that suggestion” also work when exactly one pending suggestion is available. Staging alone leaves the accepted graph unchanged. In the browser, use **Tools → Structure → Stage a proposal**, paste the same JSON, and review its source links before selecting **Accept** or **Reject**. **Start from latest message** can also fill an editable cited claim from your most recent user message; this manual starter copies your words, so review the meaning and label before staging. Use fresh node and relation IDs if these definitions already exist.
 
 The reconsideration condition is recorded knowledge, not a running monitor. Dao does not detect concurrent writers or revise the choice automatically.
 

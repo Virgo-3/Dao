@@ -1,8 +1,11 @@
 import io
 from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 from dao.config import Config
+from dao.service import Dao
+from dao.store import Store
 from dao.terminal import Terminal
 
 
@@ -14,6 +17,24 @@ def head(identifier, *, activities=None):
 
 
 class ConversationTerminalTests(unittest.TestCase):
+    def test_assumption_request_recalls_real_context_in_the_terminal_without_a_provider(self):
+        store = Store(":memory:")
+        try:
+            app = Dao(store, Config(provider="openai", api_key="test-only", token_budget=1))
+            output = io.StringIO()
+            terminal = Terminal(app, input_stream=io.StringIO(
+                "We chose SQLite because this must work offline.\nShow the assumptions behind that decision\n/quit\n"),
+                output_stream=output)
+            with patch("dao.service.openai_stream") as provider:
+                self.assertEqual(terminal.run(), 0)
+                provider.assert_not_called()
+            self.assertIn("The most recent recorded decision was: We chose SQLite", output.getvalue())
+            self.assertIn("this must work offline", output.getvalue())
+            self.assertEqual(len(store.head()["state"]["relationships"]["nodes"]), 2)
+            self.assertEqual(store.usage()["entries"], [])
+        finally:
+            store.close()
+
     def run_terminal(self, lines, turn):
         output = io.StringIO()
         requests = []

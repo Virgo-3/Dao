@@ -142,6 +142,7 @@ function appendActivities(container, activities) {
   const notes = node("div", "message-activities");
   notes.setAttribute("aria-label", "What Dao remembered or recalled");
   activities.forEach((activity) => {
+    const row = node("div", "activity-row");
     const note = node("details", "message-activity");
     note.append(node("summary", "", activity.label || titleCase(activity.kind || "Conversation updated")));
     if (activity.summary) note.append(node("p", "activity-summary", activity.summary));
@@ -158,7 +159,16 @@ function appendActivities(container, activities) {
     }
     appendCitations(note, activity);
     addJsonDetails(note, activity, "Advanced details");
-    notes.append(note);
+    row.append(note);
+    const destination = activity.kind === "view_requested" ? activity.view : activity.proposal_id ? "structure" :
+      activity.node_ids?.length || activity.memory_keys?.length ? "memory" : null;
+    if (Object.hasOwn(viewPanels, destination) || destination === "tools") {
+      const link = node("button", "text-button activity-view-link", destination === "memory" ? "View in Memory ↗" : `Open ${titleCase(destination)} ↗`);
+      link.type = "button";
+      link.addEventListener("click", () => openView(destination, activity.node_ids));
+      row.append(link);
+    }
+    notes.append(row);
   });
   container.append(notes);
 }
@@ -242,7 +252,7 @@ function renderBranches() {
   $("revision-label").textContent = branch === "main" ? "Main conversation · saved" : `Exploring ${branch} · saved`;
   $("branch-current-name").textContent = branch;
   $("branch-current").title = `Current branch: ${branch}. View branches and history.`;
-  $("context-scope").textContent = `Remembered in ${branch}.`;
+  $("context-scope").textContent = activeView === "memory" ? `Remembered in ${branch}.` : `Optional tools · ${branch}`;
 }
 
 function renderHistory() {
@@ -420,7 +430,7 @@ function showPassage(citation) {
   const mark = node("mark", "", citation.quote);
   content.replaceChildren(document.createTextNode(characters.slice(0, start).join("")), mark, document.createTextNode(characters.slice(end).join("")));
   article.classList.add("message-source-highlight");
-  if (!wideLayout.matches) setToolsOpen(false);
+  if (!wideLayout.matches) setInspectorOpen(false);
   article.focus({ preventScroll: true });
   mark.scrollIntoView({ behavior: "smooth", block: "center" });
 }
@@ -471,11 +481,13 @@ function renderContext() {
   if (pending) {
     const review = node("button", "context-review", `${pending} ${pending === 1 ? "suggestion needs" : "suggestions need"} your review →`);
     review.type = "button";
-    review.addEventListener("click", () => selectTab($("relationships-tab")));
+    review.addEventListener("click", () => openView("structure"));
     container.append(review);
   }
   function appendRecord(parent, record) {
     const card = node("article", `context-card stance-${record.stance || "unrecorded"}`);
+    card.dataset.nodeId = record.id;
+    card.tabIndex = -1;
     const heading = node("div", "context-card-heading");
     heading.append(node("h4", "", record.label || record.id), node("span", "context-kind", titleCase(record.kind || "note")));
     card.append(heading);
@@ -800,6 +812,7 @@ async function updateArtifactGate() {
 async function submitChat() {
   const message = $("message-input").value.trim();
   if (!message || busy || !ready) return;
+  let requestedView = null;
   await mutate(async () => {
     const expectedHead = idOf(workspace.head);
     if (!messageRecords().length) $("messages").replaceChildren();
@@ -835,7 +848,7 @@ async function submitChat() {
           complete = true;
           completedBranch = event.branch || branch;
         } else if (event.type === "activity") {
-          // Persisted assistant messages render activity notes after completion.
+          if (event.result?.kind === "view_requested") requestedView = event.result;
         } else if (event.type === "proposal") {
           proposalCount += 1;
         } else if (event.type === "error") {
@@ -862,11 +875,13 @@ async function submitChat() {
       if (!complete) throw new Error("The stream ended before completion. Your saved state will be reloaded.");
       assistant.item.classList.remove("streaming");
       await refresh(completedBranch);
+      if (requestedView) openView(requestedView.view, requestedView.node_ids);
       if (proposalCount) {
         $("structure-status").textContent = "Dao has a knowledge suggestion. Say “Keep that” to remember it, or review it here.";
-        notify("Dao has a knowledge suggestion. Say “Keep that” or review it in Context & tools → Structure.");
+        notify("Dao has a knowledge suggestion. Say “Keep that” or review it in Tools → Structure.");
       }
     } catch (error) {
+      requestedView = null;
       assistant.item.classList.remove("streaming");
       if (!receivedText) $("message-input").value = message;
       try { await refresh(complete ? completedBranch : branch); } catch { /* Keep the original failure visible. */ }
@@ -874,7 +889,7 @@ async function submitChat() {
       throw error;
     }
   });
-  $("message-input").focus();
+  if (!requestedView) $("message-input").focus();
 }
 
 $("chat-form").addEventListener("submit", (event) => { event.preventDefault(); submitChat(); });
@@ -883,7 +898,7 @@ $("message-input").addEventListener("keydown", (event) => {
 });
 function usePrompt(text) {
   if (busy || !ready) return;
-  if (!wideLayout.matches) setToolsOpen(false);
+  if (!wideLayout.matches) setInspectorOpen(false);
   const input = $("message-input");
   input.value = text;
   input.focus();
@@ -898,25 +913,57 @@ $("message-input").addEventListener("input", () => setBusy(busy));
 
 const tabs = [...document.querySelectorAll("[role=tab]")];
 const wideLayout = window.matchMedia("(min-width: 1200px)");
+const viewPanels = Object.freeze({ memory: "context-panel", decision: "decision-panel", structure: "relationships-panel", audit: "audit-panel", usage: "ledger-panel" });
+let activeView = "memory";
 
-function setToolsOpen(open) {
+function openView(view, nodeIds = [], { focus = true } = {}) {
+  if (view === "tools") {
+    $("tools-menu").open = true;
+    $("tools-toggle").focus();
+    return;
+  }
+  if (!Object.hasOwn(viewPanels, view)) return;
+  activeView = view;
+  document.querySelectorAll(".tool-panel").forEach((panel) => { panel.hidden = panel.id !== viewPanels[view]; });
+  tabs.forEach((tab) => {
+    const selected = tab.dataset.view === view;
+    tab.setAttribute("aria-selected", String(selected));
+    tab.tabIndex = selected ? 0 : -1;
+  });
+  $("tool-tabs").hidden = view === "memory";
+  $("inspector-title").textContent = titleCase(view);
+  $("inspector-eyebrow").textContent = view === "memory" ? "Remembered along the way" : "When you need more detail";
+  $("context-scope").textContent = view === "memory" ? `Remembered in ${branch}.` : `Optional tools · ${branch}`;
+  $("tools-menu").open = false;
+  setInspectorOpen(true);
+  const panel = $(viewPanels[view]);
+  panel.scrollTop = 0;
+  const ids = Array.isArray(nodeIds) ? nodeIds : [];
+  const cards = view === "memory" ? [...panel.querySelectorAll("[data-node-id]")] : [];
+  const target = ids.map((id) => cards.find((card) => card.dataset.nodeId === id)).find(Boolean);
+  if (target) {
+    for (let parent = target.parentElement; parent && parent !== panel; parent = parent.parentElement) {
+      if (parent.tagName === "DETAILS") parent.open = true;
+    }
+    target.focus({ preventScroll: true });
+    target.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  } else if (focus) $("inspector-title").focus({ preventScroll: true });
+}
+
+function setInspectorOpen(open) {
   if (open && !wideLayout.matches) setHistoryOpen(false);
   const focusedInTools = $("workspace-tools").contains(document.activeElement);
   $("app-shell").classList.toggle("tools-open", open);
   $("workspace-tools").hidden = !open;
-  $("tools-toggle").setAttribute("aria-expanded", String(open));
-  const label = open ? wideLayout.matches ? "Hide context" : "Back to conversation" : "Context & tools";
-  $("tools-toggle").setAttribute("aria-label", label);
-  if (open && !wideLayout.matches) {
-    const shortLabel = node("span", "utility-short", "← Chat");
-    shortLabel.setAttribute("aria-hidden", "true");
-    $("tools-toggle").replaceChildren(node("span", "utility-label", label), shortLabel);
-  } else $("tools-toggle").textContent = label;
-  if (!open && focusedInTools) $("tools-toggle").focus();
+  $("memory-toggle").setAttribute("aria-expanded", String(open && activeView === "memory"));
+  $("workspace-tools").setAttribute("aria-label", titleCase(activeView));
+  $("inspector-close").textContent = wideLayout.matches ? "×" : "← Conversation";
+  $("inspector-close").setAttribute("aria-label", wideLayout.matches ? `Close ${titleCase(activeView)}` : "Back to conversation");
+  if (!open && focusedInTools) $(activeView === "memory" ? "memory-toggle" : "tools-toggle").focus();
 }
 
 function setHistoryOpen(open) {
-  if (open && !wideLayout.matches) setToolsOpen(false);
+  if (open && !wideLayout.matches) setInspectorOpen(false);
   $("app-shell").classList.toggle("history-open", open);
   $("workspace-history").hidden = !open;
   $("history-toggle").setAttribute("aria-expanded", String(open));
@@ -925,7 +972,20 @@ function setHistoryOpen(open) {
   if (open) $("history-details").open = true;
 }
 
-$("tools-toggle").addEventListener("click", () => setToolsOpen($("workspace-tools").hidden));
+$("memory-toggle").addEventListener("click", () => {
+  if (!$("workspace-tools").hidden && activeView === "memory") setInspectorOpen(false);
+  else openView("memory");
+});
+$("inspector-close").addEventListener("click", () => setInspectorOpen(false));
+document.querySelectorAll("[data-open-view]").forEach((button) => {
+  button.addEventListener("click", () => openView(button.dataset.openView));
+});
+document.addEventListener("pointerdown", (event) => {
+  if (!$("tools-menu").contains(event.target)) $("tools-menu").open = false;
+});
+$("tools-menu").addEventListener("focusout", (event) => {
+  if (!$("tools-menu").contains(event.relatedTarget)) $("tools-menu").open = false;
+});
 $("history-toggle").addEventListener("click", () => setHistoryOpen($("workspace-history").hidden));
 $("branch-current").addEventListener("click", () => { setHistoryOpen($("workspace-history").hidden); if (!$("workspace-history").hidden) $("branch-select").focus(); });
 $("alert-close").addEventListener("click", () => {
@@ -933,26 +993,23 @@ $("alert-close").addEventListener("click", () => {
   if (errorFocus?.isConnected && errorFocus.getClientRects().length) errorFocus.focus();
 });
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !wideLayout.matches && !$("workspace-tools").hidden) {
-    setToolsOpen(false);
+  if (event.key === "Escape" && $("tools-menu").open) {
+    $("tools-menu").open = false;
     $("tools-toggle").focus();
+  } else if (event.key === "Escape" && !$("workspace-tools").hidden) {
+    setInspectorOpen(false);
   } else if (event.key === "Escape" && !$("workspace-history").hidden) {
     setHistoryOpen(false);
     $("history-toggle").focus();
   }
 });
-wideLayout.addEventListener("change", () => setToolsOpen(!$("workspace-tools").hidden));
-setToolsOpen(false);
+wideLayout.addEventListener("change", () => setInspectorOpen(!$("workspace-tools").hidden));
+setInspectorOpen(false);
 setHistoryOpen(false);
 if (!wideLayout.matches) $("history-details").open = false;
 
 function selectTab(tab) {
-  tabs.forEach((item) => {
-    const selected = item === tab;
-    item.setAttribute("aria-selected", String(selected));
-    item.tabIndex = selected ? 0 : -1;
-    $(item.dataset.panel).hidden = !selected;
-  });
+  openView(tab.dataset.view, [], { focus: false });
 }
 tabs.forEach((tab, index) => {
   tab.addEventListener("click", () => selectTab(tab));

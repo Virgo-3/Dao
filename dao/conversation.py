@@ -303,6 +303,26 @@ def _review_reply(state, action, selection=None):
             "activities": [activity], "navigation": None}
 
 
+def _view_reply(state, message, view, *, reasoning=False):
+    """Describe saved context and request a read-only browser view after commit."""
+    if view == "memory":
+        reply, recalled = _recall(state, all_notes=not reasoning)
+        node_ids = recalled[0]["node_ids"] if recalled else []
+        citations = recalled[0]["citations"] if recalled else [_citation(message)]
+    else:
+        reply = {
+            "decision": "The Decision tool compares acting, waiting, and abstaining using your explicit assumptions.",
+            "structure": "Structure shows saved relationships and suggestions awaiting your review.",
+            "audit": "The Audit tool reviews the evidence you supply against a source-count and reliability rule.",
+            "usage": "Usage shows recorded tokens, the lifetime budget, and configured cost estimates.",
+            "tools": "Tools contains Decision, Structure, Audit, and Usage, plus export and history verification.",
+        }[view]
+        node_ids, citations = [], [_citation(message)]
+    activity = _activity("view_requested", "Reasoning requested" if reasoning else view.capitalize() + " requested",
+                         node_ids, citations, view=view, summary=reply[:400])
+    return {"reply": reply, "activities": [activity], "navigation": None}
+
+
 def prepare(state):
     """Handle a few explicit intents; unknown messages leave state untouched."""
     result = {"reply": None, "activities": [], "navigation": None}
@@ -319,6 +339,16 @@ def prepare(state):
         result["reply"] = "I’m unsure which choice is current. Which decision and reason should I remember?"
         return result
     intent = re.sub(r"[.!?]\s*$", "", plain)
+    if re.fullmatch(r"(?:show(?: me)? (?:the )?(?:assumptions|reasoning|reasons) (?:behind|for) (?:that|this|our|the) decision|what assumptions did we make)", intent, re.I):
+        return _view_reply(state, message, "memory", reasoning=True)
+    view = re.fullmatch(r"(?:show|open)(?: me)?(?: the| my| our)? (memory|remembered context|saved notes|decision (?:tool|model|calculator)|structure|relationships|audit(?: tool)?|evidence review|usage|tools)", intent, re.I)
+    if view or intent.casefold() == "show me what you remember":
+        name = view.group(1).casefold() if view else "memory"
+        destination = ("memory" if name in {"memory", "remembered context", "saved notes"} else
+                       "decision" if name.startswith("decision ") else
+                       "structure" if name in {"structure", "relationships"} else
+                       "audit" if name in {"audit", "audit tool", "evidence review"} else name)
+        return _view_reply(state, message, destination)
     if re.fullmatch(r"(?:why did we decide that|why did we choose that|what was our reasoning)", intent, re.I):
         result["reply"], result["activities"] = _recall(state)
         return result

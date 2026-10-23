@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dao-terminal"
+version = "0.1.0"
+description = "A commitment-first conversational terminal with reversible, audited state"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+dependencies = []
+
+[project.scripts]
+dao = "dao.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["dao*"]

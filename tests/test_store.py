@@ -245,7 +245,7 @@ class StoreTests(unittest.TestCase):
         content = {"goal": "Accepted commitment", "evidence": ["Test passed"]}
         receipt = self.store.execute_export(content, 2, self.store.head)
         path = Path(receipt["path"])
-        self.assertEqual(path.parent, self.root / "artifacts")
+        self.assertTrue(path.parent.samefile(self.root / "artifacts"))
         self.assertEqual(json.loads(path.read_text(encoding="utf-8")), content)
         self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(), receipt["sha256"])
         self.assertEqual(self.store.receipts()[0]["status"], "completed")
